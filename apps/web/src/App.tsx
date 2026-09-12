@@ -66,9 +66,10 @@ function RoomLobby({room,member,isHost,busy,notice,onHome,onRole,onResume,onPlan
     <section className="lobby-actions">
       {!ready&&<Primary onClick={onRole} busy={busy}>选择角色</Primary>}
       {ready&&room.game&&room.game.phase==='playing'&&<Primary onClick={onResume} busy={busy}>回到当前游戏</Primary>}
-      {isHost&&ready&&!room.game&&nextItem&&<Primary onClick={()=>onStart(nextItem.gameId)} busy={busy}>开始下一场 · {GAME_DEFINITIONS[nextItem.gameId].name}</Primary>}
-      {isHost&&ready&&!room.game&&!nextItem&&<p className="muted">聚会编排已全部完成</p>}
-      {!isHost&&ready&&!room.game&&<p className="muted">等待主持人开始…</p>}
+      {isHost&&!room.game&&nextItem&&<Primary onClick={()=>onStart(nextItem.gameId)} busy={busy}>开始下一场 · {GAME_DEFINITIONS[nextItem.gameId].name}</Primary>}
+      {isHost&&!room.game&&!nextItem&&<p className="muted">聚会编排已全部完成</p>}
+      {!isHost&&!room.game&&<p className="muted">等待主持人开始…</p>}
+      {isHost&&room.game&&room.game.phase==="playing"&&<button className="danger-soft" onClick={()=>{if(window.confirm("确定结束本场？所有玩家会看到结算。"))void onHostAction("settle",{reason:"主持手动结束"});}}>结束本场</button>}
     </section>
     <section className="lobby-footer"><button className="text-btn" onClick={onEditMbti}>MBTI 设置</button><button className="text-btn danger" onClick={onLogout}>退出登录</button></section>
     <Notice text={notice}/>
