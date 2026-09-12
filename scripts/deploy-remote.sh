@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -eu
 
 REPO_URL=https://github.com/3249333134/cosworks.git
