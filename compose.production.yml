@@ -27,8 +27,8 @@ services:
         condition: service_healthy
     networks:
       - cosworks-net
-    ports:
-      - "5173:80"
+    expose:
+      - "80"
 
 networks:
   cosworks-net:
