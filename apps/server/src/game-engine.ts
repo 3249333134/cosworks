@@ -40,7 +40,7 @@ function runtime(room:RoomSnapshot):Runtime { let value=runtimes.get(room.id); i
 export function startGame(room:RoomSnapshot, gameId:GameId, profiles:Map<string,{mbti:Mbti;role:IpRole}>, generatedChallenges:Map<string,Challenge>=new Map(), planItemId:string|null=null, shoppingWallets:Record<string,number>|null=null, options?:{rounds?:number;boardSize?:number}):RoomSnapshot {
   const definition=GAME_DEFINITIONS[gameId]; const active=room.members.filter(member=>member.ready);const auctionWallets=gameId==='shopping'?(shoppingWallets??previousAuctionWallets(room)):null;
   if(active.length<definition.minPlayers)throw new Error(`至少需要 ${definition.minPlayers} 位已准备玩家`);
-  if((gameId==='auction'||gameId==='story'||gameId==='undercover')&&active.length!==room.members.length)throw new Error('所有房间成员准备后才能开始游戏');
+  
   const state=runtime(room);state.challenges={};state.completed.clear();state.processed.clear();state.usedDontContents.clear();state.dontWordCounts={};state.dontWordHistory={};state.mustTriggerCounts={};state.mustCardChanges={};state.mustChallengeHistory={};
   active.forEach(member=>{const profile=profiles.get(member.accountId);if(profile&&gameId!=='truth'&&gameId!=='story'&&gameId!=='undercover')state.challenges[member.accountId]=generatedChallenges.get(member.accountId)??buildChallenge({gameId,mbti:profile.mbti,role:profile.role,playerCount:active.length,cameraAvailable:false});});
   if(gameId==='dont')active.forEach(member=>{const challenge=state.challenges[member.accountId];if(challenge){state.usedDontContents.add(challenge.content);state.dontWordCounts[member.accountId]=1;state.dontWordHistory[member.accountId]=[challenge.content];}});
