@@ -28,15 +28,15 @@ export function TaskPanel({children,className='',...props}:ComponentProps<'div'>
 
 export function SummaryPanel({id, title, status, defaultOpen = false, children}: {id:string; title:ReactNode; status?:ReactNode; defaultOpen?:boolean; children:ReactNode}) {
   const scope = useContext(PageScope), key = `${scope}:${id}`, contentId = useId();
-  const [open, setOpen] = useState(() => expanded.get(key) ?? (matchMedia("(min-width:1024px) and (min-height:601px)").matches && defaultOpen));
+  const [open, setOpen] = useState(() => expanded.get(key) ?? (defaultOpen || matchMedia("(min-width:1024px) and (min-height:601px)").matches));
   const ref = useRef<HTMLDetailsElement>(null);
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{
     const media=matchMedia('(max-width:1023px), (max-height:600px)');
-    const sync=()=>{const el=dialog.current;if(!el)return;el.close();if(open){if(media.matches)el.showModal();else el.show();}};
+    const sync=()=>{const el=dialog.current;if(!el)return;el.close();if(open){el.show();}};
     sync();media.addEventListener('change',sync);return()=>media.removeEventListener('change',sync);
   },[open]);
-  useEffect(() => { setOpen(expanded.get(key) ?? (matchMedia("(min-width:1024px) and (min-height:601px)").matches && defaultOpen)); }, [key, defaultOpen]);
+  useEffect(() => { setOpen(expanded.get(key) ?? (defaultOpen || matchMedia("(min-width:1024px) and (min-height:601px)").matches)); }, [key, defaultOpen]);
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
