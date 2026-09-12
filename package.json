@@ -1,0 +1,17 @@
+{
+  "name": "ruxiju",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @ruxiju/web --filter @ruxiju/server dev",
+    "remote-dev:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/remote-dev.ps1 -Action Init",
+    "remote-dev:refresh": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/remote-dev.ps1 -Action Refresh",
+    "remote-dev:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/remote-dev.ps1 -Action Start",
+    "remote-dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/remote-dev.ps1 -Action Stop",
+    "remote-dev:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/remote-dev.ps1 -Action Check",
+    "build": "pnpm --filter @ruxiju/shared build && pnpm --filter @ruxiju/server build && pnpm --filter @ruxiju/web build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

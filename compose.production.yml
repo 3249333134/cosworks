@@ -1,0 +1,35 @@
+services:
+  api:
+    container_name: cosworks-api
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    restart: always
+    env_file: /opt/cosworks/shared/.env.production
+    networks:
+      - cosworks-net
+    expose:
+      - "5000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  web:
+    container_name: cosworks-web
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: always
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - cosworks-net
+    expose:
+      - "80"
+
+networks:
+  cosworks-net:
+    external: true

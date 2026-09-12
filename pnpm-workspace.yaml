@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  qs: 6.13.1
+  tsx: 4.19.2

@@ -1,0 +1,38 @@
+.story-game { grid-template-rows: auto minmax(0,1fr) auto; }
+.story-game .play-stage { height: 100%; margin: 0 auto; justify-content: flex-start; }
+.story-game .play-stage > * { flex-shrink: 0; }
+.story-game .play-stage h1 { margin: 12px 0 28px; }
+.story-content { display: grid; gap: 20px; width: min(100%,640px); min-width: 0; text-align: left; }
+.story-content h2 { font-size: 1.1rem; margin: 0 0 10px; }
+.story-content p { line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; }
+.story-content details { border-top: 1px solid var(--line); padding-top: 14px; min-width: 0; }
+.story-content summary { cursor: pointer; min-height: 44px; padding: 10px 0; overflow-wrap: anywhere; }
+.story-fields { display: grid; gap: 16px; padding: 14px 0; }
+.story-content input, .story-content textarea { font-size: 16px; min-width: 0; max-width: 100%; }
+.story-content textarea { min-height: 112px; }
+.story-content button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.story-content button:not(.primary):not(.rules-link), .story-skip { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.story-content button:not(.primary):not(:disabled):hover, .story-skip:not(:disabled):hover { border-color: var(--gold); }
+.story-content button:disabled, .story-skip:disabled { opacity: .5; cursor: not-allowed; }
+.story-content button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.story-order, .story-ranking { list-style: none; padding: 0; margin: 0; }
+.story-order li, .story-ranking li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.story-order li > span, .story-ranking li > span { min-width: 0; overflow-wrap: anywhere; }
+.story-order li > div { display: flex; flex-shrink: 0; gap: 6px; }
+.story-order button { min-width: 44px; }
+.story-ranking strong { white-space: nowrap; color: var(--gold); }
+.story-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.story-recorder { display: grid; gap: 12px; }
+.story-recorder audio { width: 100%; max-width: 100%; }
+.story-recorder small, .story-content .muted, .story-content small { color: var(--muted); }
+.story-ruling { display: grid; gap: 14px; padding: 16px 0; border: 0; border-top: 1px solid var(--line); margin: 18px 0 0; min-width: 0; }
+.story-ruling > label:not(.field) { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.story-ruling input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--gold); }
+.story-ruling legend { padding-right: 12px; }
+.story-notice, .story-recorder [role="alert"] { color: #ffb9a8; }
+.story-content :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.story-game .play-footer { width: min(100%,688px); }
+.story-timer { color: var(--gold); font-variant-numeric: tabular-nums; }
+.story-content .story-thread-list li > div { flex-wrap: wrap; }
+.story-content .story-ending-box { padding: 16px; border: 1px solid var(--gold); border-radius: 12px; }
+@media(max-width:430px) { .story-content { gap: 18px; } .story-game .play-stage { padding-left: 20px; padding-right: 20px; } .story-buttons > button { flex: 1 1 140px; } }
