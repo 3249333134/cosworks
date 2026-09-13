@@ -12,6 +12,7 @@
     "remote-dev:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/remote-dev.ps1 -Action Check",
     "build": "pnpm --filter @ruxiju/shared build && pnpm --filter @ruxiju/server build && pnpm --filter @ruxiju/web build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "build:release": "pnpm build && node scripts/build-release.mjs"
   }
 }

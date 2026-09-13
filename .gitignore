@@ -30,3 +30,5 @@ _tmp_*.mjs
 _tmp_*.js
 _check_*.js
 _check_*.cjs
+# Generated server release
+apps/server/release/

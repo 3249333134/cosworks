@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS user_ip_roles (
   signature_action VARCHAR(100) NOT NULL DEFAULT '',
   ability VARCHAR(100) NOT NULL DEFAULT '',
   is_default TINYINT(1) NOT NULL DEFAULT 0,
+  version INT NOT NULL DEFAULT 1,
+  generation_json JSON NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_roles_account_theme(account_id,ip_theme),
   CONSTRAINT fk_role_user FOREIGN KEY(account_id) REFERENCES users(id) ON DELETE CASCADE
@@ -71,3 +73,18 @@ CREATE TABLE IF NOT EXISTS reviews (id CHAR(36) PRIMARY KEY,room_id CHAR(36) NOT
 CREATE TABLE IF NOT EXISTS review_votes (id BIGINT AUTO_INCREMENT PRIMARY KEY,review_id CHAR(36) NOT NULL,voter_account_id CHAR(36) NOT NULL,vote VARCHAR(20) NOT NULL,UNIQUE KEY uniq_review_vote(review_id,voter_account_id));
 CREATE TABLE IF NOT EXISTS generated_content (id CHAR(36) PRIMARY KEY,cache_key VARCHAR(255) NOT NULL UNIQUE,account_id CHAR(36) NULL,game_id VARCHAR(30) NOT NULL,content_json JSON NOT NULL,rules_version INT NOT NULL DEFAULT 1,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS audit_logs (id CHAR(36) PRIMARY KEY,room_id CHAR(36) NOT NULL,actor_account_id CHAR(36) NOT NULL,event_type VARCHAR(40) NOT NULL,reason VARCHAR(255) NOT NULL,metadata_json JSON NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,INDEX idx_audit_room(room_id));
+
+CREATE TABLE IF NOT EXISTS background_jobs (
+  id CHAR(36) PRIMARY KEY,
+  job_key VARCHAR(255) NOT NULL UNIQUE,
+  kind VARCHAR(20) NOT NULL,
+  account_id CHAR(36) NULL,
+  payload JSON NOT NULL,
+  status VARCHAR(20) NOT NULL,
+  attempts INT NOT NULL DEFAULT 0,
+  run_at BIGINT NOT NULL,
+  lease_until BIGINT NOT NULL DEFAULT 0,
+  lease_token CHAR(36) NULL,
+  error VARCHAR(255) NULL,
+  INDEX idx_jobs_ready(status,run_at,lease_until)
+);

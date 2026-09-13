@@ -1,5 +1,11 @@
 .settings-roles .section-heading{gap:12px;align-items:center}
 .settings-roles .section-label{margin:0}
+.role-details>summary{cursor:pointer;min-height:44px;align-content:center;color:var(--text)}
+.role-details>summary small{color:var(--text-soft);font-size:.75rem;margin-left:8px}
+.role-details-fields{display:grid;gap:16px;padding-top:12px}
+.role-sources{display:grid;gap:8px;font-size:.8rem;overflow-wrap:anywhere}
+.role-sources a{color:var(--gold);padding-block:6px}
+.settings-role-card>.role-message{padding:0 16px 12px}
 .settings-roles .role-add{min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:transparent;color:var(--gold)}
 .settings-role-list{list-style:none;padding:0;margin:0;display:grid;gap:12px}
 .settings-role-card{min-width:0;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);transition:border-color var(--fast) var(--ease)}

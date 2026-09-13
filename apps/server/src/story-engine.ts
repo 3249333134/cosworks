@@ -8,7 +8,7 @@ function shuffle<T>(arr: readonly T[]): T[] {
 
 export interface StoryState {
   version: 2; stage: StoryStage; participants: StoryParticipant[]; order: string[];
-  opening: string; endingHint: string; ending: string; tasks: Record<string,string>; source: 'ai'|'manual'|'legacy'|null;
+  opening: string; endingHint: string; ending: string; tasks: Record<string,string>; source: 'ai'|'local'|'manual'|'legacy'|null;
   segments: Array<{accountId:string;content:string;task:string;submittedAt:number;taskCompleted:boolean}>;
   currentSpeakerIndex: number; currentRound: number; turnStartedAt: number|null; endingRevealed: boolean;
   votes: Record<string,{targetAccountId:string;votedAt:number}>;
@@ -79,7 +79,7 @@ export function validateStoryBundle(value:unknown,participants:StoryParticipant[
   if(endingHint===ending)throw new Error('结局提示应保留悬念，不能直接复制完整结局');
   return {opening,endingHint,ending,tasks};
 }
-export function applyStoryBundle(room:RoomSnapshot,value:unknown,source:'ai'|'manual'){
+export function applyStoryBundle(room:RoomSnapshot,value:unknown,source:'ai'|'local'|'manual'){
   const s=storyState(room);if(!s||s.stage!=='setup')throw new Error('只能在准备阶段生成或设置故事');
   const bundle=validateStoryBundle(value,s.participants);Object.assign(s,bundle,{source});refreshStory(room,s);
 }

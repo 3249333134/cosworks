@@ -109,6 +109,11 @@ html,body,#root { overflow:hidden; }
 .adaptive-page .auth-stage h1 { font-size:2rem; }
 .adaptive-page .auth-stage form { overflow-y:auto; min-height:0; overscroll-behavior:contain; }
 .adaptive-page.home-shell { display:flex; flex-direction:column; gap:10px; }
+.adaptive-page.home-shell > .home-header { flex:0 0 auto; }
+.adaptive-page.home-shell > .join-stage { flex:0 0 auto; overflow:visible; }
+.adaptive-page.home-shell > .join-stage .task-scroll { overflow:visible; flex:none; min-height:0; }
+.adaptive-page.home-shell > .recent-rooms-section { flex:1 1 auto; min-height:0; }
+.adaptive-page.home-shell > .profile-strip { flex:0 0 auto; }
 .adaptive-page .join-stage { margin:0; padding:0; }
 .adaptive-page .profile-strip { flex:none; }
 .adaptive-page .shopping-budget { margin:0; padding:8px 12px; }

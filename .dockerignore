@@ -1,0 +1,11 @@
+**/node_modules
+.git
+.local
+.deploy
+deploy/server
+**/.env
+**/.env.*
+**/data
+**/*.log
+*.tar.gz
+*.tgz

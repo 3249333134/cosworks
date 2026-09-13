@@ -22,7 +22,7 @@ describe('auction API and persistence',()=>{
     for(let i=0;i<3;i++)ids.push((await store.createUser(`auction${i}`,'unused',`玩家${i}`)).id);
     room={id:randomUUID(),code:'ABCD23',name:'拍卖验证',ipTheme:'测试',status:'waiting',ownerAccountId:ids[0],members:ids.map((id,i)=>({id:randomUUID(),accountId:id,displayName:`玩家${i}`,isOwner:i===0,hostRole:i===0?'owner':null,playerRole:'收藏家',ipRoleId:null,team:'队',ready:true,online:true,score:0})),currentGame:null,game:null,gamePlan:[{id:randomUUID(),gameId:'auction',createdAt:new Date().toISOString()}],planCursor:0,planRound:1,closedAt:null};
     await store.createRoom(room);
-    const started=await request(app).post(`/api/rooms/${room.code}/host-actions`).set(auth(ids[0])).send({action:'start'});expect(started.status).toBe(200);
+    const started=await request(app).post(`/api/rooms/${room.code}/host-actions`).set(auth(ids[0])).send({action:'start',gameId:'auction'});expect(started.status).toBe(200);
     room=(await store.getRoom(room.code))!;
   });
   async function image(id=ids[0],roomId=room.id){
@@ -86,8 +86,8 @@ describe('auction API and persistence',()=>{
     const events=await store.listGameEvents(room.game!.sessionId);expect(events.filter(e=>e.eventType==='auction-bid')).toHaveLength(2);
     const scores=done.members.map(m=>m.score);await request(app).post(`/api/rooms/${room.code}/host-actions`).set(auth(ids[0])).send({action:'settle'});expect((await store.getRoom(room.code))!.members.map(m=>m.score)).toEqual(scores);
   });
-  it('requires every member ready and permits forced zero budgets and skipped sellers',async()=>{
-    const waiting=structuredClone(room);waiting.members[2].ready=false;expect(()=>startGame(waiting,'auction',new Map())).toThrow('所有');
+  it('starts with eligible players and permits forced zero budgets and skipped sellers',async()=>{
+    const waiting=structuredClone(room);waiting.members[2].ready=false;expect(()=>startGame(waiting,'auction',new Map())).not.toThrow();
     expect((await advance()).status).toBe(200);expect((await advance()).status).toBe(400);
     const asset=await image();expect((await act(ids[0],'auction-submit-item',{assetId:asset.assetId,title:'笔',story:'故事'})).status).toBe(200);expect((await advance()).status).toBe(200);expect((await advance()).status).toBe(200);
     expect((await act(ids[1],'auction-bid',{price:0.1})).status).toBe(400);

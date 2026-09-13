@@ -1,3 +1,4 @@
+import { startBackground } from './background.js';
 import { createServer } from 'node:http';
 import { createApp } from './app.js';
 import { config } from './config.js';
@@ -26,4 +27,5 @@ try {
   throw new Error(`Dependency check failed. Verify the SSH tunnel and remote-dev configuration: ${message}${hint}`);
 }
 
+const stopBackground=startBackground(store);process.once('SIGTERM',stopBackground);process.once('SIGINT',stopBackground);
 const server=createServer(createApp(store));attachWebSocket(server);server.listen(config.port,config.host,()=>console.log(`[ruxiju] API listening on ${config.host}:${config.port}`));

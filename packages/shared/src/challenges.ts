@@ -42,7 +42,10 @@ export function isLowCorrelationSecretMission(content:string):boolean{
   const parts=SECRET_MISSION_PATTERN.exec(content);if(!parts)return false;
   const trigger=parts[1];const action=parts[2];
   if(!SECRET_MISSION_TRIGGERS.includes(trigger as typeof SECRET_MISSION_TRIGGERS[number]))return false;
-  if(!Object.values(SECRET_MISSION_ACTIONS).flat().includes(action))return false;
+  const roleSpeech=/^(?:小声|用(?:沉稳|温柔|活泼|认真)的语气)说一句“[^“”\n]{1,12}”$/.test(action);
+  const rolePose=/^做一次(?:抱拳|叉腰|托腮|竖起拇指|比出猫爪|双手背后站定)的姿势$/.test(action);
+  if(!Object.values(SECRET_MISSION_ACTIONS).flat().includes(action)&&!roleSpeech&&!rolePose)return false;
+  if(/亲吻|拥抱|脱衣|喝酒|密码|住址|手机号|辱骂|打人|自杀|去死/.test(action))return false;
   if(action.length>24||/或|以及|并且|同时|然后|随后/.test(trigger)||/然后|随后|并且|同时|接着|再做|后说|后再|保持.+后|，(?:用|并|再|然后|同时|接着)/.test(action))return false;
   if(SECRET_MISSION_SEMANTIC_GROUPS.some(group=>group.test(trigger)&&group.test(action)))return false;
   const normalize=(value:string)=>value.replace(/[“”"'，。！？、　\s]/g,'').replace(/别人|某人|立刻|一下|一次|三秒/g,'');

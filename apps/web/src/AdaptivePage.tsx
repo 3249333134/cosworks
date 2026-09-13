@@ -32,9 +32,8 @@ export function SummaryPanel({id, title, status, defaultOpen = false, children}:
   const ref = useRef<HTMLDetailsElement>(null);
   const dialog=useRef<HTMLDialogElement>(null);
   useEffect(()=>{
-    const media=matchMedia('(max-width:1023px), (max-height:600px)');
-    const sync=()=>{const el=dialog.current;if(!el)return;el.close();if(open){el.show();}};
-    sync();media.addEventListener('change',sync);return()=>media.removeEventListener('change',sync);
+    // Always inline (no dialog) — content scrolls inside its own container
+    const el=dialog.current;if(el){el.close();}
   },[open]);
   useEffect(() => { setOpen(expanded.get(key) ?? (defaultOpen || matchMedia("(min-width:1024px) and (min-height:601px)").matches)); }, [key, defaultOpen]);
   useEffect(() => {

@@ -23,9 +23,9 @@ describe('story lifecycle, privacy and concurrency',()=>{
   const next=async()=>{const s=await read();return act('a','story-next',{expectedStage:s.stage,expectedSpeakerId:s.order[s.currentSpeakerIndex]});};
   const start=async()=>{expect((await act('a','story-set-story',bundle)).status).toBe(200);expect((await next()).status).toBe(200);};
   const writeAll=async()=>{await start();const s=await read();for(const id of s.order)expect((await act(id,'story-submit-segment',{content:`角色${id}来到泉眼。他向大家展示自己的线索。`})).status).toBe(200);expect((await read()).stage).toBe('reveal');};
-  beforeEach(async()=>{vi.restoreAllMocks();room=fixture();store=new MemoryStore();app=createApp(store);startGame(room,'story',new Map());await store.createRoom(room);});
+  beforeEach(async()=>{vi.restoreAllMocks();room=fixture();store=new MemoryStore();for(const m of room.members){store.users.set(m.accountId,{id:m.accountId,account:m.accountId,passwordHash:'unused',displayName:m.displayName});store.profiles.set(m.accountId,{accountId:m.accountId,displayName:m.displayName,mbti:'INFP',mbtiCompletedAt:null,roles:[{id:m.accountId,ipTheme:room.ipTheme,name:m.playerRole,personaTags:[],quote:'',signatureAction:'',ability:'',isDefault:true}]});}app=createApp(store);startGame(room,'story',new Map());await store.createRoom(room);});
   it('requires two participants and everyone ready; snapshots independent personas and order',async()=>{
-    const waiting=fixture();waiting.members[2].ready=false;expect(()=>startGame(waiting,'story',new Map())).toThrow('所有');waiting.members=waiting.members.slice(0,1);expect(()=>startGame(waiting,'story',new Map())).toThrow('至少');
+    const waiting=fixture();waiting.members[2].ready=false;expect(()=>startGame(waiting,'story',new Map())).not.toThrow();waiting.members=waiting.members.slice(0,1);expect(()=>startGame(waiting,'story',new Map())).toThrow('至少');
     await act('a','story-set-story',bundle);
     expect((await act('b','story-set-character',{playerRole:'跨 IP 自定义侦探',persona:'沉着冷静，善于推理'})).status).toBe(200);
     const s=await read();expect(s.participants[1].playerRole).toBe('跨 IP 自定义侦探');expect(room.members[1].playerRole).toBe('角色b');expect(s.tasks).toEqual({});
@@ -45,12 +45,12 @@ describe('story lifecycle, privacy and concurrency',()=>{
     // Legacy public snapshots must not leak through the snapshot reader.
     room.game!.publicState.ending=bundle.ending;expect(playerSnapshot(room,'b').game!.publicState.ending).toBeUndefined();
   });
-  it('validates all task identities atomically and retains setup on AI failure',async()=>{
+  it('validates task identities and uses a complete backup story without waiting for AI',async()=>{
     expect(()=>validateStoryBundle({...bundle,tasks:{a:'only'}},storyState(room)!.participants)).toThrow('每位');
     expect((await act('a','story-set-story',{...bundle,tasks:{a:'one',b:'two',fake:'three'}})).status).toBe(400);expect((await read()).opening).toBe('');
     vi.spyOn(content,'generateStoryBundle').mockRejectedValueOnce(new Error('AI 未能生成完整故事')).mockResolvedValueOnce(bundle);
-    expect((await act('b','story-generate')).status).toBe(400);expect((await act('a','story-generate')).status).toBe(400);expect((await read()).stage).toBe('setup');
-    expect((await act('a','story-generate')).status).toBe(200);expect((await read()).tasks).toEqual(bundle.tasks);
+    expect((await act('b','story-generate')).status).toBe(400);expect((await act('a','story-generate')).status).toBe(200);expect((await read()).stage).toBe('setup');
+    expect((await act('a','story-generate')).status).toBe(200);expect(Object.keys((await read()).tasks).sort()).toEqual(['a','b','c']);expect(content.generateStoryBundle).not.toHaveBeenCalled();
   });
   it('serializes simultaneous submit/skip and rejects stale, duplicate and oversized requests',async()=>{
     await start();const s=await read();const first=s.order[0];const second=s.order[1];s.turnStartedAt=Date.now()-120000;await store.saveGameSession(room,{game:room.game});await store.saveRoom(room);

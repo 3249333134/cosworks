@@ -54,7 +54,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET ?? 'development-only-secret-change-before-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
-  ai: { provider:process.env.AI_PROVIDER ?? 'local', url:process.env.AI_API_URL ?? '', key:process.env.AI_API_KEY ?? '', model:process.env.AI_MODEL ?? '', timeout:number(process.env.AI_TIMEOUT_MS,20000) }
+  ai: { provider:process.env.AI_PROVIDER ?? (process.env.AGNES_API_KEY?'agnes':'local'), url:process.env.AI_API_URL || 'https://apihub.agnes-ai.com/v1/chat/completions', key:process.env.AGNES_API_KEY || process.env.AI_API_KEY || '', model:process.env.AI_MODEL || 'agnes-2.5-flash', timeout:Math.max(1000,number(process.env.AI_TIMEOUT_MS,45000)), rpm:Math.max(1,number(process.env.AI_RPM,15)), concurrency:Math.max(1,number(process.env.AI_CONCURRENCY,2)) }
 };
 
 if (config.env === 'production' && config.jwtSecret.startsWith('development-')) throw new Error('JWT_SECRET must be configured in production');

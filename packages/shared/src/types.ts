@@ -9,6 +9,8 @@ export type RoomStatus = 'waiting' | 'ready' | 'running' | 'paused' | 'settled' 
 export type HostRole = 'owner' | 'cohost' | 'reviewer' | null;
 
 export interface IpRole {
+  version?: number;
+  generation?: { status: 'queued'|'running'|'complete'|'partial'|'failed'; taskId: string; message?: string; sources?: Array<{title:string;url:string;retrievedAt:string}>; evidence?: Record<string,string>; };
   id: string;
   ipTheme: string;
   name: string;
@@ -221,7 +223,7 @@ export interface GameOverview {
     order: string[];
     turnStartedAt: number | null;
     readyToStart: boolean;
-    source: 'ai' | 'manual' | 'legacy' | null;
+    source: 'ai' | 'local' | 'manual' | 'legacy' | null;
     tasks?: Record<string, string>;
     approvals?: Record<string, Record<string, boolean>>;
     rulings?: Record<string, StoryRuling>;
