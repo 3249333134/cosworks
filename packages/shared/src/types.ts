@@ -289,6 +289,7 @@ export interface AuctionLotOverview {
   thumbUrl: string | null;
   submittedAt: string | null;
   bidCount: number;
+  reservePrice: number | null;
   soldPrice: number | null;
   winnerAccountId: string | null;
   winnerName: string | null;
