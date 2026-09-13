@@ -471,7 +471,7 @@ function handleAuctionAction(room:RoomSnapshot,accountId:string,input:GameAction
     const story=String(input.payload?.story||'').trim();
     const emoji=String(input.payload?.emoji||'').trim();
     if(title.length<1||title.length>20)throw new Error('物品名称需要 1～20 个字');
-    if(story.length<1||story.length>200)throw new Error('物品介绍需要 1～200 个字');
+    if(story.length>200)throw new Error('物品介绍最多 200 个字');
     const hasPhoto=Boolean(assetId);
     const lotId='lot-'+randomUUID();const lot:AuctionLot={
       lotId,sellerAccountId:accountId,title,story,assetId,
