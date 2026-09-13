@@ -104,6 +104,8 @@ html,body,#root { overflow:hidden; }
 .adaptive-page .lobby-header { padding-bottom:6px; }
 .adaptive-page .timeline-hint { display:none; }
 .adaptive-page.centered.wide > .task-panel { flex:1 1 0; min-height:0; }
+.adaptive-page.centered.wide.settings-page > .task-panel { flex:none; min-height:0; overflow:visible; }
+.adaptive-page.centered.wide.settings-page > .task-panel > .task-scroll { overflow:visible; flex:none; }
 .adaptive-page .auth-stage { height:100%; max-height:700px; min-height:0; grid-template-rows:auto minmax(0,1fr); gap:16px; padding:0; }
 .adaptive-page .auth-stage > div .stage-mark { width:48px; height:48px; }
 .adaptive-page .auth-stage h1 { font-size:2rem; }

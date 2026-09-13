@@ -28,6 +28,7 @@ export function RoleEditor({role,onSaved,onCancel,onGenerated}:{role:RoleDraft;o
   };
   useEffect(()=>{if(draft.generation&& !['queued','running'].includes(draft.generation.status))setMessage('');},[draft.generation?.status]);
   return <form className="settings-role-editor" aria-label="编辑角色" onSubmit={e=>{e.preventDefault();void submit(false);}}><fieldset disabled={pending}>
+    <div className="role-editor-body">
     <label>IP 主题<input required maxLength={80} value={draft.ipTheme} onChange={e=>update({ipTheme:e.target.value})} placeholder="如：罗小黑战记"/></label>
     <label>角色名<input required maxLength={50} value={draft.name} onChange={e=>update({name:e.target.value})} placeholder="如：无限"/></label>
     <button type="button" className="ai-generate-btn" disabled={pending||running||!draft.ipTheme.trim()||!draft.name.trim()} onClick={()=>void submit(true)}><span>{pending?'正在保存…':running?'资料补全中…':draft.generation?.status==='failed'?'重试 AI 补全':'AI 生成'}</span><span className="ai-hint">先保存角色，再查找资料自动补全</span></button>
@@ -39,7 +40,10 @@ export function RoleEditor({role,onSaved,onCancel,onGenerated}:{role:RoleDraft;o
       <label>能力标签<input maxLength={100} value={draft.ability??''} onChange={e=>update({ability:e.target.value})}/></label>
       {Boolean(draft.generation?.sources?.length)&&<div className="role-sources"><span>资料来源</span>{draft.generation!.sources!.map(source=><a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.title}</a>)}</div>}
     </div></details>
+    </div>
+    <div className="role-editor-footer">
     <button className="primary" disabled={pending||!draft.ipTheme.trim()||!draft.name.trim()}>{pending?'正在保存…':'保存角色'}</button>
     {onCancel&&<button type="button" className="text-btn" onClick={onCancel}>收起</button>}
+    </div>
   </fieldset></form>;
 }
