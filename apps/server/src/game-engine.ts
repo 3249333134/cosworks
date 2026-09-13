@@ -32,7 +32,7 @@ const DRAW_WORDS=['猫','狗','飞机','火锅','手机','雨伞','太阳','月�
 
 interface AuctionBid { bidId:string; accountId:string; price:number; bidAt:number }
 interface AuctionLot { lotId:string; sellerAccountId:string; title:string; story:string; assetId:string; imageUrl:string; thumbUrl:string; submittedAt:number; bidHistory:AuctionBid[]; winnerAccountId:string|null; soldPrice:number|null; soldAt:number|null; sold:boolean }
-interface AuctionState { stage:'init'|'setup'|'preview'|'bidding'|'complete'; budgets:Record<string,number>; wallets:Record<string,number>; lots:AuctionLot[]; lotOrder:string[]; currentLotIndex:number|null; topBid:AuctionBid|null; budgetSubmitted:Record<string,true>; itemSubmitted:Record<string,true>; itemsByAccount:Record<string,string>; processedActions?:Record<string,true> }
+interface AuctionState { stage:'init'|'setup'|'preview'|'bidding'|'complete'; budgets:Record<string,number>; wallets:Record<string,number>; lots:AuctionLot[]; lotOrder:string[]; currentLotIndex:number|null; topBid:AuctionBid|null; budgetSubmitted:Record<string,true>; itemSubmitted:Record<string,true>; itemsByAccount:Record<string,string[]>; processedActions?:Record<string,true> }
 const PRICE_INCREMENT = 0.1;
 
 function runtime(room:RoomSnapshot):Runtime { let value=runtimes.get(room.id); if(!value){value={challenges:{},completed:new Set(),processed:new Set(),usedDontContents:new Set(),dontWordCounts:{},dontWordHistory:{},mustTriggerCounts:{},mustCardChanges:{},mustChallengeHistory:{}};runtimes.set(room.id,value);} return value; }
@@ -384,7 +384,7 @@ function auctionState(room:RoomSnapshot):AuctionState|undefined{
   value.stage??='init';value.budgets??={};value.wallets??={};value.lots??=[];value.lotOrder??=[];value.topBid??=null;value.itemsByAccount??={};
   value.budgetSubmitted=submissionRecord(value.budgetSubmitted);value.itemSubmitted=submissionRecord(value.itemSubmitted);
   for(const [id,budget] of Object.entries(value.budgets))if(budget>0)value.budgetSubmitted[id]=true;
-  for(const lot of value.lots){value.itemsByAccount[lot.sellerAccountId]=lot.lotId;value.itemSubmitted[lot.sellerAccountId]=true;}
+  for(const lot of value.lots){(value.itemsByAccount[lot.sellerAccountId]||=[]).push(lot.lotId);value.itemSubmitted[lot.sellerAccountId]=true;}
   return value as AuctionState;
 }
 function allWitchReveals(witch:WitchState|undefined){return witch?Object.values(witch.investigations).flat():[];}
@@ -465,18 +465,22 @@ function handleAuctionAction(room:RoomSnapshot,accountId:string,input:GameAction
   }
   if(input.action==='auction-submit-item'){
     if(auc.stage!=='setup')throw new Error('物品只能在 setup 阶段上传');
-    if(auc.itemsByAccount[accountId])throw new Error('你已经提交过一件物品，每人限拍一件');
+    const myCount=(auc.itemsByAccount[accountId]||[]).length;if(myCount>=9)throw new Error('每人最多提交 9 件物品');
     const assetId=String(input.payload?.assetId||'').trim();
     const title=String(input.payload?.title||'').trim();
     const story=String(input.payload?.story||'').trim();
-    if(!assetId)throw new Error('请先上传物品照片');
+    const emoji=String(input.payload?.emoji||'').trim();
     if(title.length<1||title.length>20)throw new Error('物品名称需要 1～20 个字');
     if(story.length<1||story.length>200)throw new Error('物品介绍需要 1～200 个字');
+    const hasPhoto=Boolean(assetId);
     const lotId='lot-'+randomUUID();const lot:AuctionLot={
-      lotId,sellerAccountId:accountId,title,story,assetId,imageUrl:`/api/media/${encodeURIComponent(assetId)}`,thumbUrl:`/api/media/${encodeURIComponent(assetId)}?thumb=1`,submittedAt:Date.now(),bidHistory:[],winnerAccountId:null,soldPrice:null,soldAt:null,sold:false
+      lotId,sellerAccountId:accountId,title,story,assetId,
+      imageUrl:hasPhoto?`/api/media/${encodeURIComponent(assetId)}`:`data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><rect width='200' height='200' fill='#2a2318'/><text x='50%' y='55%' font-size='90' text-anchor='middle' dominant-baseline='middle'>${emoji||'🎁'}</text></svg>`)}`,
+      thumbUrl:hasPhoto?`/api/media/${encodeURIComponent(assetId)}?thumb=1`:'',
+      submittedAt:Date.now(),bidHistory:[],winnerAccountId:null,soldPrice:null,soldAt:null,sold:false
     };
-    auc.lots.push(lot);auc.lots.sort((a,b)=>a.submittedAt-b.submittedAt);auc.lotOrder=auc.lots.map(item=>item.lotId);auc.itemsByAccount[accountId]=lotId;auc.itemSubmitted[accountId]=true;
-    if(active.every(m=>auc.itemsByAccount[m.accountId])){auc.stage='preview';game.primaryAction='查看即将上拍的物品清单';}
+    auc.lots.push(lot);auc.lots.sort((a,b)=>a.submittedAt-b.submittedAt);auc.lotOrder=auc.lots.map(item=>item.lotId);(auc.itemsByAccount[accountId]||=[]).push(lotId);auc.itemSubmitted[accountId]=true;
+    game.primaryAction=auc.lots.length>=1?'至少提交一件物品，由主持点"预览拍品"进入拍卖':'至少提交一件物品';
     refreshAuctionPublicState(room,auc,active);return room;
   }
   if(input.action==='auction-reorder'){
