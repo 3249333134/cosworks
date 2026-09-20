@@ -9,6 +9,7 @@ export type RoomStatus = 'waiting' | 'ready' | 'running' | 'paused' | 'settled' 
 export type HostRole = 'owner' | 'cohost' | 'reviewer' | null;
 
 export interface IpRole {
+  avatarColor?: string;
   version?: number;
   generation?: { status: 'queued'|'running'|'complete'|'partial'|'failed'; taskId: string; message?: string; sources?: Array<{title:string;url:string;retrievedAt:string}>; evidence?: Record<string,string>; };
   id: string;
@@ -22,6 +23,7 @@ export interface IpRole {
 }
 
 export interface UserProfile {
+  avatarColor?: string;
   accountId: string;
   displayName: string;
   mbti: Mbti | null;
@@ -209,6 +211,9 @@ export interface GameOverview {
     itemsByAccount: Record<string, string>;
     soldCount: number;
     lastActionAt: number | null;
+    auctioneerMode: 'free' | 'designated';
+    auctioneerAccountId: string | null;
+    auctioneerName: string | null;
     rankingsPreview: {
       richRanking: Array<{ accountId: string; displayName: string; wallet: number }>;
       auctionRanking: Array<{ lotId: string; title: string; soldPrice: number | null; sellerName: string; winnerName: string | null }>;

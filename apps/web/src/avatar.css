@@ -1,0 +1,16 @@
+/* Only the new avatar controls own layout rules. Existing pages keep their layout. */
+.personal-avatar { width:32px; height:32px; flex:none; border-radius:50%; display:grid; place-items:center; font-weight:700; font-size:.9rem; box-shadow:inset 0 0 0 1px rgba(255,255,255,.15); }
+.avatar-color-picker { display:grid; gap:12px; min-width:0; text-align:left; }
+.avatar-color-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--text-soft); font-size:.875rem; }
+.avatar-color-preview { width:44px; height:44px; flex:none; display:grid; place-items:center; border-radius:50%; font-size:1.125rem; font-weight:700; }
+.avatar-presets { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; }
+.avatar-color-picker .avatar-swatch { min-width:0; width:100%; min-height:44px; padding:0; border:2px solid transparent; border-radius:10px; font-size:1.25rem; }
+.avatar-color-picker .avatar-swatch[aria-pressed="true"] { box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--text-soft); }
+.avatar-custom { display:grid; grid-template-columns:80px minmax(0,1fr); gap:12px; }
+.avatar-custom label { display:grid; gap:6px; color:var(--text-soft); font-size:.8125rem; min-width:0; }
+.avatar-color-picker .avatar-custom input { width:100%; min-width:0; height:44px; min-height:44px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg-elevated); color:var(--text); font-size:16px; }
+.avatar-color-picker .avatar-custom input[type="color"] { padding:4px; cursor:pointer; }
+.avatar-color-picker :is(input,button):focus-visible,.avatar-save:focus-visible { outline:2px solid var(--gold); outline-offset:4px; }
+.avatar-color-error { color:var(--danger); font-size:.8125rem; line-height:1.5; margin:0; }
+.personal-avatar-settings .avatar-save { width:100%; min-height:44px; margin-top:16px; padding:10px 16px; border:1px solid var(--gold); border-radius:12px; background:var(--gold-soft); color:var(--gold); font:inherit; font-weight:600; }
+.personal-avatar-settings > p { margin:12px 0 0; }

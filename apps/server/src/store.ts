@@ -1,151 +1,15 @@
-import mysql, { type Pool, type PoolConnection } from 'mysql2/promise';
-import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { GameId, IpRole, Mbti, RecentRoomSummary, RoomMember, RoomSnapshot, UserProfile } from '@ruxiju/shared';
-import { JOB_SCHEMA, type BackgroundJob } from './jobs.js';
-import { config } from './config.js';
-
-export interface UserRecord { id:string; account:string; passwordHash:string; displayName:string }
-export interface GameSessionRecord { id:string; roomId:string; gameId:GameId; planItemId:string|null; state:unknown; startedAt:string; endedAt:string|null }
-export type GameEventVisibility = 'public' | 'private' | 'public_after_settle';
-export interface GameEventRecord { id:string; sessionId:string; actorAccountId:string|null; eventType:string; visibility:GameEventVisibility; payload:Record<string,unknown>; createdAt:string }
-export interface GeneratedContentRecord { cacheKey:string; accountId:string|null; gameId:string; content:unknown; rulesVersion:number }
-export interface AssetRecord { id:string; accountId:string; roomId:string|null; filename:string; mimeType:string; size:number; width:number|null; height:number|null; thumbSize:number|null; createdAt:string; dataUrl:string|null; imagePath?:string|null; thumbPath?:string|null; usedInSessionId?:string|null; usedAt?:string|null; }
-export interface Store {
-  enqueueJob(job:BackgroundJob,force?:boolean):Promise<BackgroundJob>;
-  claimJob(now:number,leaseMs:number):Promise<BackgroundJob|null>;
-  ownsJob(id:string,token:string):Promise<boolean>;
-  finishJob(id:string,token:string,status:BackgroundJob['status'],error:string|null,runAt:number):Promise<void>;
-  getJob(id:string):Promise<BackgroundJob|null>;
-  atomic<T>(work:(store:Store)=>Promise<T>):Promise<T>;
-  ping(): Promise<void>;
-  ensureTimelineSchema(): Promise<void>;
-  createUser(account:string, passwordHash:string, displayName:string): Promise<UserRecord>;
-  findUserByAccount(account:string): Promise<UserRecord | null>;
-  findUserById(id:string): Promise<UserRecord | null>;
-  getProfile(accountId:string): Promise<UserProfile>;
-  updateProfile(accountId:string, patch:{displayName?:string; mbti?:Mbti}): Promise<UserProfile>;
-  saveRole(accountId:string, role:Omit<IpRole,'id'> & {id?:string}): Promise<IpRole>;
-  deleteRole(accountId:string, roleId:string): Promise<void>;
-  createRoom(room:RoomSnapshot): Promise<void>;
-  getRoom(code:string): Promise<RoomSnapshot | null>;
-  listRecentRooms(accountId:string, limit:number): Promise<RecentRoomSummary[]>;
-  saveRoom(room:RoomSnapshot): Promise<void>;
-  saveGameSession(room:RoomSnapshot, state:unknown, ended?:boolean): Promise<void>;
-  getGameSession(sessionId:string): Promise<unknown | null>;
-  getGameSessionRecord(sessionId:string): Promise<GameSessionRecord | null>;
-  listGameSessions(roomId:string): Promise<GameSessionRecord[]>;
-  addGameEvent(sessionId:string, actorAccountId:string|null, eventType:string, visibility:GameEventVisibility, payload?:Record<string,unknown>): Promise<void>;
-  listGameEvents(sessionId:string): Promise<GameEventRecord[]>;
-  getMemberEvents(roomId:string, accountId:string, limit?:number): Promise<GameEventRecord[]>;
-  getGeneratedContent(cacheKey:string): Promise<GeneratedContentRecord | null>;
-  listGeneratedContent(prefix:string): Promise<GeneratedContentRecord[]>;
-  saveGeneratedContent(record:GeneratedContentRecord): Promise<void>;
-  deleteGeneratedContent(cacheKey:string): Promise<void>;
-  markAction(actionId:string, roomId:string, accountId:string, gameId:string, action:string, payload:unknown): Promise<boolean>;
-  addAudit(roomId:string, actorId:string, type:string, reason:string, metadata?:unknown): Promise<void>;
-  saveAsset(asset:AssetRecord): Promise<void>;
-  getAsset(id:string): Promise<AssetRecord | null>;
-}
-
-export class MemoryStore implements Store {
-  jobs=new Map<string,BackgroundJob>();
-  private transactionTail:Promise<unknown>=Promise.resolve();
-  private inTransaction=false;
-  async enqueueJob(job:BackgroundJob,force=false){const prior=[...this.jobs.values()].find(j=>j.key===job.key);if(prior&&(prior.status==='running'||prior.status==='queued'||prior.status==='failed'&&!force)){if(prior.status==='queued'&&job.kind==='prepare'){prior.runAt=job.runAt;}return structuredClone(prior);}if(prior)this.jobs.delete(prior.id);this.jobs.set(job.id,structuredClone(job));return job;}
-  async claimJob(now:number,leaseMs:number){return this.atomic(async tx=>{const store=tx as MemoryStore;const job=[...store.jobs.values()].filter(j=>(j.status==='queued'&&j.runAt<=now)||(j.status==='running'&&j.leaseUntil<=now)).sort((a,b)=>a.runAt-b.runAt)[0];if(!job)return null;if(job.attempts>=3){job.status='failed';return null;}Object.assign(job,{status:'running',attempts:job.attempts+1,leaseToken:randomUUID(),leaseUntil:now+leaseMs});return structuredClone(job);});}
-  async ownsJob(id:string,token:string){const j=this.jobs.get(id);return Boolean(j&&j.leaseToken===token&&j.status==='running'&&j.leaseUntil>Date.now());}
-  async finishJob(id:string,token:string,status:BackgroundJob['status'],error:string|null,runAt:number){const j=this.jobs.get(id);if(j?.leaseToken===token)Object.assign(j,{status,error,runAt,leaseUntil:0,leaseToken:null});}
-  async getJob(id:string){return structuredClone(this.jobs.get(id)??null);}
-
-  users = new Map<string,UserRecord>(); profiles = new Map<string,UserProfile>(); rooms = new Map<string,RoomSnapshot>(); roomUpdated = new Map<string,string>(); sessions = new Map<string,GameSessionRecord>(); events = new Map<string,GameEventRecord[]>(); generated = new Map<string,GeneratedContentRecord>(); actions = new Set<string>(); audits:unknown[] = []; assets = new Map<string,AssetRecord>();
-  async atomic<T>(work:(store:Store)=>Promise<T>):Promise<T>{
-    if(this.inTransaction)return work(this);
-    const prior=this.transactionTail;let release!:()=>void;this.transactionTail=new Promise<void>(r=>{release=r;});await prior;
-    try {
-    const draft=new MemoryStore();draft.inTransaction=true;
-    const maps=['users','profiles','rooms','roomUpdated','sessions','events','generated','assets','jobs'] as const;
-    for(const key of maps)(draft[key] as Map<string,unknown>)=structuredClone(this[key]);
-    draft.actions=new Set(this.actions);draft.audits=structuredClone(this.audits);
-    const baseline=new Map(maps.map(key=>[key,new Map([...this[key]].map(([id,value])=>[id,JSON.stringify(value)]))]));
-    const actionsBefore=new Set(this.actions);const auditsBefore=this.audits.length;
-    const result=await work(draft);
-    // Publish the write set synchronously; unrelated room commits remain intact.
-    for(const key of maps){const target=this[key] as Map<string,unknown>;const before=baseline.get(key)!;
-      for(const [id,value] of draft[key])if(before.get(id)!==JSON.stringify(value))target.set(id,value);
-      for(const id of before.keys())if(!draft[key].has(id))target.delete(id);
-    }
-    for(const id of draft.actions)if(!actionsBefore.has(id))this.actions.add(id);
-    this.audits.push(...draft.audits.slice(auditsBefore));return result;
-    }finally{release();}
-  }
-  async ping(){}
-  async ensureTimelineSchema(){}
-  async createUser(account:string,passwordHash:string,displayName:string){ if(await this.findUserByAccount(account)) throw new Error('账号已存在'); const user={id:randomUUID(),account,passwordHash,displayName}; this.users.set(user.id,user); this.profiles.set(user.id,{accountId:user.id,displayName,mbti:null,mbtiCompletedAt:null,roles:[]}); return user; }
-  async findUserByAccount(account:string){ return [...this.users.values()].find(user=>user.account===account) ?? null; }
-  async findUserById(id:string){ return this.users.get(id) ?? null; }
-  async getProfile(accountId:string){ const value=this.profiles.get(accountId); if(!value) throw new Error('账号不存在'); return structuredClone(value); }
-  async updateProfile(accountId:string,patch:{displayName?:string;mbti?:Mbti}){ const value=await this.getProfile(accountId); if(patch.displayName)value.displayName=patch.displayName; if(patch.mbti){value.mbti=patch.mbti;value.mbtiCompletedAt=new Date().toISOString();} this.profiles.set(accountId,value); const user=this.users.get(accountId); if(user&&patch.displayName)user.displayName=patch.displayName; return value; }
-  async saveRole(accountId:string,role:Omit<IpRole,'id'>&{id?:string}){ const profile=await this.getProfile(accountId); const value={...role,id:role.id??randomUUID()}; if(value.isDefault)profile.roles.forEach(item=>{if(item.ipTheme===value.ipTheme)item.isDefault=false;}); const index=profile.roles.findIndex(item=>item.id===value.id); if(index>=0)profile.roles[index]=value;else profile.roles.push(value); this.profiles.set(accountId,profile); return value; }
-  async deleteRole(accountId:string,roleId:string){ const profile=await this.getProfile(accountId); profile.roles=profile.roles.filter(role=>role.id!==roleId); this.profiles.set(accountId,profile); }
-  async createRoom(room:RoomSnapshot){ this.rooms.set(room.code,structuredClone(room));this.roomUpdated.set(room.code,new Date().toISOString()); }
-  async getRoom(code:string){ const value=this.rooms.get(code); return value?structuredClone(value):null; }
-  async listRecentRooms(accountId:string,limit:number){return [...this.rooms.values()].filter(room=>room.members.some(member=>member.accountId===accountId)).sort((a,b)=>String(this.roomUpdated.get(b.code)).localeCompare(String(this.roomUpdated.get(a.code)))).slice(0,limit).map(room=>recentSummary(room,accountId,this.roomUpdated.get(room.code)??new Date().toISOString()));}
-  async saveRoom(room:RoomSnapshot){ this.rooms.set(room.code,structuredClone(room));this.roomUpdated.set(room.code,new Date().toISOString()); }
-  async saveGameSession(room:RoomSnapshot,state:unknown,ended=false){if(!room.game)return;const prior=this.sessions.get(room.game.sessionId);this.sessions.set(room.game.sessionId,{id:room.game.sessionId,roomId:room.id,gameId:room.game.gameId,planItemId:room.game.planItemId??null,state:structuredClone(state),startedAt:prior?.startedAt??new Date().toISOString(),endedAt:ended||room.game.phase==='settled'?new Date().toISOString():prior?.endedAt??null});}
-  async getGameSession(sessionId:string){const value=this.sessions.get(sessionId);return value?structuredClone(value.state):null;}
-  async getGameSessionRecord(sessionId:string){const value=this.sessions.get(sessionId);return value?structuredClone(value):null;}
-  async listGameSessions(roomId:string){return [...this.sessions.values()].filter(item=>item.roomId===roomId).sort((a,b)=>a.startedAt.localeCompare(b.startedAt)).map(item=>structuredClone(item));}
-  async addGameEvent(sessionId:string,actorAccountId:string|null,eventType:string,visibility:GameEventVisibility,payload:Record<string,unknown>={}){const record={id:randomUUID(),sessionId,actorAccountId,eventType,visibility,payload:structuredClone(payload),createdAt:new Date().toISOString()};this.events.set(sessionId,[...(this.events.get(sessionId)??[]),record]);}
-  async listGameEvents(sessionId:string){return structuredClone(this.events.get(sessionId)??[]);}
-  async getMemberEvents(roomId:string, accountId:string, limit=50){const sessions=await this.listGameSessions(roomId);const all:GameEventRecord[]=[];for(const session of sessions){const events=await this.listGameEvents(session.id);for(const event of events)if(event.actorAccountId===accountId)all.push(event);}return all.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,limit);}
-  async getGeneratedContent(cacheKey:string){const value=this.generated.get(cacheKey);return value?structuredClone(value):null;}
-  async listGeneratedContent(prefix:string){return [...this.generated.values()].filter(item=>item.cacheKey.startsWith(prefix)).map(item=>structuredClone(item));}
-  async saveGeneratedContent(record:GeneratedContentRecord){this.generated.set(record.cacheKey,structuredClone(record));}
-  async deleteGeneratedContent(cacheKey:string){this.generated.delete(cacheKey);}
-  async markAction(actionId:string){ if(this.actions.has(actionId))return false; this.actions.add(actionId); return true; }
-  async addAudit(roomId:string,actorId:string,type:string,reason:string,metadata?:unknown){ this.audits.push({roomId,actorId,type,reason,metadata,at:Date.now()}); }
-  async saveAsset(asset:AssetRecord){this.assets.set(asset.id,structuredClone(asset));}
-  async getAsset(id:string){const value=this.assets.get(id);return value?structuredClone(value):null;}
-}
-
-export class MySqlStore implements Store {
-  async enqueueJob(job:BackgroundJob,force=false){
-    await this.pool.execute('INSERT IGNORE INTO background_jobs(id,job_key,kind,account_id,payload,status,attempts,run_at,lease_until) VALUES(?,?,?,?,?,?,?,?,0)',[job.id,job.key,job.kind,job.accountId,JSON.stringify(job.payload),'queued',0,job.runAt]);
-    await this.pool.execute("UPDATE background_jobs SET id=?,payload=?,status='queued',attempts=0,run_at=?,lease_until=0,lease_token=NULL,error=NULL WHERE job_key=? AND (status='complete' OR (status='failed' AND ?=1))",[job.id,JSON.stringify(job.payload),job.runAt,job.key,force?1:0]);
-    if(job.kind==='prepare')await this.pool.execute("UPDATE background_jobs SET run_at=? WHERE job_key=? AND status='queued'",[job.runAt,job.key]);
-    const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT * FROM background_jobs WHERE job_key=?',[job.key]);return jobFromRow(rows[0]);
-  }
-  async claimJob(now:number,leaseMs:number){return this.atomic(async tx=>{const store=tx as MySqlStore;
-    await store.pool.execute("UPDATE background_jobs SET status='failed',error='任务重试次数已耗尽' WHERE status='running' AND lease_until<=? AND attempts>=3",[now]);
-    const [rows]=await store.pool.query<mysql.RowDataPacket[]>("SELECT * FROM background_jobs WHERE (status='queued' AND run_at<=?) OR (status='running' AND lease_until<=?) ORDER BY run_at LIMIT 1 FOR UPDATE SKIP LOCKED",[now,now]);if(!rows[0])return null;
-    const job=jobFromRow(rows[0]);Object.assign(job,{status:'running',attempts:job.attempts+1,leaseToken:randomUUID(),leaseUntil:now+leaseMs});
-    await store.pool.execute("UPDATE background_jobs SET status='running',attempts=?,lease_token=?,lease_until=? WHERE id=?",[job.attempts,job.leaseToken,job.leaseUntil,job.id]);return job;});}
-  async ownsJob(id:string,token:string){const [rows]=await this.pool.query<mysql.RowDataPacket[]>("SELECT id FROM background_jobs WHERE id=? AND lease_token=? AND status='running' AND lease_until>? FOR UPDATE",[id,token,Date.now()]);return rows.length>0;}
-  async finishJob(id:string,token:string,status:BackgroundJob['status'],error:string|null,runAt:number){await this.pool.execute('UPDATE background_jobs SET status=?,error=?,run_at=?,lease_until=0,lease_token=NULL WHERE id=? AND lease_token=?',[status,error,runAt,id,token]);}
-  async getJob(id:string){const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT * FROM background_jobs WHERE id=?',[id]);return rows[0]?jobFromRow(rows[0]):null;}
-
-  constructor(private pool:Pool|PoolConnection){}
-  async atomic<T>(work:(store:Store)=>Promise<T>):Promise<T>{
-    if(!('getConnection' in this.pool))return work(this);
-    const connection=await this.pool.getConnection();
-    try{await connection.beginTransaction();const result=await work(new MySqlStore(connection));await connection.commit();return result;}
-    catch(error){await connection.rollback();throw error;}finally{connection.release();}
-  }
-  async ping(){await this.pool.query('SELECT 1');}
-  async ensureTimelineSchema(){await this.pool.execute(JOB_SCHEMA);const [meta]=await this.pool.query<mysql.RowDataPacket[]>("SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='user_ip_roles' AND column_name='generation_json'");if(!meta.length){await this.pool.execute('ALTER TABLE user_ip_roles ADD COLUMN generation_json JSON NULL, ADD COLUMN version INT NOT NULL DEFAULT 1');}const [columns]=await this.pool.query<mysql.RowDataPacket[]>("SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='game_sessions' AND column_name='plan_item_id' LIMIT 1");if(!columns.length)await this.pool.execute('ALTER TABLE game_sessions ADD COLUMN plan_item_id VARCHAR(80) NULL AFTER game_id');const [indexes]=await this.pool.query<mysql.RowDataPacket[]>("SELECT 1 FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='game_sessions' AND index_name='idx_session_plan_item' LIMIT 1");if(!indexes.length)await this.pool.execute('CREATE INDEX idx_session_plan_item ON game_sessions(plan_item_id)');await this.pool.execute(`CREATE TABLE IF NOT EXISTS game_events (id CHAR(36) PRIMARY KEY,session_id CHAR(36) NOT NULL,actor_account_id CHAR(36) NULL,event_type VARCHAR(60) NOT NULL,visibility ENUM('public','private','public_after_settle') NOT NULL,payload_json JSON NOT NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,INDEX idx_event_session_time(session_id,created_at),CONSTRAINT fk_event_session FOREIGN KEY(session_id) REFERENCES game_sessions(id) ON DELETE CASCADE,CONSTRAINT fk_event_actor FOREIGN KEY(actor_account_id) REFERENCES users(id) ON DELETE SET NULL)`);await this.pool.execute(`CREATE TABLE IF NOT EXISTS assets (id CHAR(36) PRIMARY KEY,account_id CHAR(36) NOT NULL,room_id CHAR(36) NULL,filename VARCHAR(255) NOT NULL,mime_type VARCHAR(120) NOT NULL,size BIGINT UNSIGNED NOT NULL,width INT UNSIGNED NULL,height INT UNSIGNED NULL,thumb_size BIGINT UNSIGNED NULL,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,data_url MEDIUMTEXT NULL,INDEX idx_asset_account(account_id),INDEX idx_asset_room(room_id))`);for(const [name,type] of Object.entries({image_path:'VARCHAR(512) NULL',thumb_path:'VARCHAR(512) NULL',used_in_session_id:'CHAR(36) NULL',used_at:'DATETIME(3) NULL'})){const [existing]=await this.pool.query<mysql.RowDataPacket[]>("SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='assets' AND column_name=?",[name]);if(!existing.length)await this.pool.execute(`ALTER TABLE assets ADD COLUMN ${name} ${type}`);}}
+(some characters truncated)...
+te(`ALTER TABLE assets ADD COLUMN ${name} ${type}`);}}
   async createUser(account:string,passwordHash:string,displayName:string){const user={id:randomUUID(),account,passwordHash,displayName};await this.pool.execute('INSERT INTO users(id,account,password_hash,display_name) VALUES(?,?,?,?)',[user.id,account,passwordHash,displayName]);await this.pool.execute('INSERT INTO user_profiles(account_id,display_name) VALUES(?,?)',[user.id,displayName]);return user;}
   async findUserByAccount(account:string){const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT id,account,password_hash passwordHash,display_name displayName FROM users WHERE account=?',[account]);return (rows[0] as UserRecord)??null;}
   async findUserById(id:string){const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT id,account,password_hash passwordHash,display_name displayName FROM users WHERE id=?',[id]);return (rows[0] as UserRecord)??null;}
-  async getProfile(accountId:string){const [profiles]=await this.pool.query<mysql.RowDataPacket[]>('SELECT display_name displayName,mbti,mbti_completed_at mbtiCompletedAt FROM user_profiles WHERE account_id=?',[accountId]);if(!profiles[0])throw new Error('账号不存在');const [roles]=await this.pool.query<mysql.RowDataPacket[]>('SELECT id,ip_theme ipTheme,name,persona_tags personaTags,quote,signature_action signatureAction,ability,is_default isDefault,version,generation_json generation FROM user_ip_roles WHERE account_id=? ORDER BY created_at'+(!('getConnection' in this.pool)?' FOR UPDATE':''),[accountId]);return {accountId,displayName:profiles[0].displayName,mbti:profiles[0].mbti,mbtiCompletedAt:profiles[0].mbtiCompletedAt,roles:roles.map(row=>({...row,generation:typeof row.generation==='string'?JSON.parse(row.generation):row.generation??undefined,personaTags:typeof row.personaTags==='string'?JSON.parse(row.personaTags):row.personaTags,isDefault:Boolean(row.isDefault)})) as IpRole[]};}
-  async updateProfile(accountId:string,patch:{displayName?:string;mbti?:Mbti}){if(patch.displayName){await this.pool.execute('UPDATE users SET display_name=? WHERE id=?',[patch.displayName,accountId]);await this.pool.execute('UPDATE user_profiles SET display_name=? WHERE account_id=?',[patch.displayName,accountId]);}if(patch.mbti)await this.pool.execute('UPDATE user_profiles SET mbti=?,mbti_completed_at=NOW() WHERE account_id=?',[patch.mbti,accountId]);return this.getProfile(accountId);}
-  async saveRole(accountId:string,role:Omit<IpRole,'id'>&{id?:string}){const id=role.id??randomUUID();if(role.isDefault)await this.pool.execute('UPDATE user_ip_roles SET is_default=0 WHERE account_id=? AND ip_theme=?',[accountId,role.ipTheme]);await this.pool.execute(`INSERT INTO user_ip_roles(id,account_id,ip_theme,name,persona_tags,quote,signature_action,ability,is_default,version,generation_json) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE ip_theme=VALUES(ip_theme),name=VALUES(name),persona_tags=VALUES(persona_tags),quote=VALUES(quote),signature_action=VALUES(signature_action),ability=VALUES(ability),is_default=VALUES(is_default),version=VALUES(version),generation_json=VALUES(generation_json)`,[id,accountId,role.ipTheme,role.name,JSON.stringify(role.personaTags),role.quote,role.signatureAction,role.ability,role.isDefault?1:0,role.version??1,role.generation?JSON.stringify(role.generation):null]);return {...role,id};}
+  async getProfile(accountId:string){const [profiles]=await this.pool.query<mysql.RowDataPacket[]>('SELECT avatar_color avatarColor,display_name displayName,mbti,mbti_completed_at mbtiCompletedAt FROM user_profiles WHERE account_id=?',[accountId]);if(!profiles[0])throw new Error('账号不存在');const [roles]=await this.pool.query<mysql.RowDataPacket[]>('SELECT id,avatar_color avatarColor,ip_theme ipTheme,name,persona_tags personaTags,quote,signature_action signatureAction,ability,is_default isDefault,version,generation_json generation FROM user_ip_roles WHERE account_id=? ORDER BY created_at'+(!('getConnection' in this.pool)?' FOR UPDATE':''),[accountId]);return {accountId,avatarColor:profiles[0].avatarColor??undefined,displayName:profiles[0].displayName,mbti:profiles[0].mbti,mbtiCompletedAt:profiles[0].mbtiCompletedAt,roles:roles.map(row=>({...row,avatarColor:row.avatarColor??undefined,generation:typeof row.generation==='string'?JSON.parse(row.generation):row.generation??undefined,personaTags:typeof row.personaTags==='string'?JSON.parse(row.personaTags):row.personaTags,isDefault:Boolean(row.isDefault)})) as IpRole[]};}
+  async updateProfile(accountId:string,patch:{displayName?:string;mbti?:Mbti;avatarColor?:string}){if(patch.displayName){await this.pool.execute('UPDATE users SET display_name=? WHERE id=?',[patch.displayName,accountId]);await this.pool.execute('UPDATE user_profiles SET display_name=? WHERE account_id=?',[patch.displayName,accountId]);}if(patch.avatarColor!==undefined)await this.pool.execute('UPDATE user_profiles SET avatar_color=? WHERE account_id=?',[patch.avatarColor,accountId]);if(patch.mbti)await this.pool.execute('UPDATE user_profiles SET mbti=?,mbti_completed_at=NOW() WHERE account_id=?',[patch.mbti,accountId]);return this.getProfile(accountId);}
+  async saveRole(accountId:string,role:Omit<IpRole,'id'>&{id?:string}){const id=role.id??randomUUID();if(role.id&&role.avatarColor===undefined){const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT avatar_color avatarColor FROM user_ip_roles WHERE id=? AND account_id=?',[id,accountId]);role={...role,avatarColor:rows[0]?.avatarColor??undefined};}if(role.isDefault)await this.pool.execute('UPDATE user_ip_roles SET is_default=0 WHERE account_id=? AND ip_theme=?',[accountId,role.ipTheme]);await this.pool.execute(`INSERT INTO user_ip_roles(id,account_id,ip_theme,name,persona_tags,quote,signature_action,ability,is_default,version,generation_json,avatar_color) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE ip_theme=VALUES(ip_theme),name=VALUES(name),persona_tags=VALUES(persona_tags),quote=VALUES(quote),signature_action=VALUES(signature_action),ability=VALUES(ability),is_default=VALUES(is_default),version=VALUES(version),generation_json=VALUES(generation_json),avatar_color=COALESCE(VALUES(avatar_color),avatar_color)`,[id,accountId,role.ipTheme,role.name,JSON.stringify(role.personaTags),role.quote,role.signatureAction,role.ability,role.isDefault?1:0,role.version??1,role.generation?JSON.stringify(role.generation):null,role.avatarColor??null]);return {...role,id};}
   async deleteRole(accountId:string,roleId:string){await this.pool.execute('DELETE FROM user_ip_roles WHERE id=? AND account_id=?',[roleId,accountId]);}
   async createRoom(room:RoomSnapshot){await this.pool.execute('INSERT INTO rooms(id,code,name,ip_theme,status,owner_account_id,state_json) VALUES(?,?,?,?,?,?,?)',[room.id,room.code,room.name,room.ipTheme,room.status,room.ownerAccountId,JSON.stringify(room)]);await this.syncMembers(room);}
   async getRoom(code:string){const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT state_json FROM rooms WHERE code=?'+(!('getConnection' in this.pool)?' FOR UPDATE':''),[code]);if(!rows[0])return null;return typeof rows[0].state_json==='string'?JSON.parse(rows[0].state_json):rows[0].state_json;}
-  async listRecentRooms(accountId:string,limit:number){const [rows]=await this.pool.query<mysql.RowDataPacket[]>(`SELECT r.state_json stateJson,r.updated_at updatedAt FROM rooms r JOIN room_members m ON m.room_id=r.id WHERE m.account_id=? ORDER BY r.updated_at DESC LIMIT ?`,[accountId,limit]);return rows.map(row=>{const room=(typeof row.stateJson==='string'?JSON.parse(row.stateJson):row.stateJson) as RoomSnapshot;return recentSummary(room,accountId,new Date(row.updatedAt).toISOString());});}
+  async listRecentRooms(accountId:string,limit:number){const [rows]=await this.pool.query<mysql.RowDataPacket[]>(`SELECT r.state_json stateJson,r.updated_at updatedAt FROM rooms r JOIN (SELECT r2.id,r2.updated_at FROM rooms r2 JOIN room_members m ON m.room_id=r2.id WHERE m.account_id=? ORDER BY r2.updated_at DESC LIMIT ?) recent ON recent.id=r.id ORDER BY r.updated_at DESC`,[accountId,limit]);return rows.map(row=>{const room=(typeof row.stateJson==='string'?JSON.parse(row.stateJson):row.stateJson) as RoomSnapshot;return recentSummary(room,accountId,new Date(row.updatedAt).toISOString());});}
   async saveRoom(room:RoomSnapshot){await this.pool.execute('UPDATE rooms SET status=?,state_json=? WHERE id=?',[room.status,JSON.stringify(room),room.id]);await this.syncMembers(room);}
   async saveGameSession(room:RoomSnapshot,state:unknown,ended=false){if(!room.game)return;await this.pool.execute(`INSERT INTO game_sessions(id,room_id,game_id,plan_item_id,state_json,started_at,ended_at) VALUES(?,?,?,?,?,NOW(),?) ON DUPLICATE KEY UPDATE plan_item_id=VALUES(plan_item_id),state_json=VALUES(state_json),ended_at=COALESCE(VALUES(ended_at),ended_at)`,[room.game.sessionId,room.id,room.game.gameId,room.game.planItemId??null,JSON.stringify(state),ended||room.game.phase==='settled'?new Date():null]);}
   async getGameSession(sessionId:string){const [rows]=await this.pool.query<mysql.RowDataPacket[]>('SELECT state_json stateJson FROM game_sessions WHERE id=?',[sessionId]);if(!rows[0])return null;return typeof rows[0].stateJson==='string'?JSON.parse(rows[0].stateJson):rows[0].stateJson;}
