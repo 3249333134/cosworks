@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
-import { actionSchema, credentialsSchema, GAME_DEFINITIONS, GAME_IDS, isDistinctSecretMission, isLowCorrelationSecretMission, mbtiSchema, roleSchema, roomCodeSchema, type Challenge, type GameId, type GamePlanItem, type GameSnapshot, type IpRole, type Mbti, type RoomMember, type RoomSnapshot } from '@ruxiju/shared';
+import { avatarColorSchema, actionSchema, credentialsSchema, GAME_DEFINITIONS, GAME_IDS, isDistinctSecretMission, isLowCorrelationSecretMission, mbtiSchema, roleSchema, roomCodeSchema, type Challenge, type GameId, type GamePlanItem, type GameSnapshot, type IpRole, type Mbti, type RoomMember, type RoomSnapshot } from '@ruxiju/shared';
 import { config } from './config.js';
 import { requireAuth, signSession } from './auth.js';
 import { createStore, type Store, type AssetRecord } from './store.js';
@@ -73,7 +73,7 @@ export function createApp(store:Store=createStore()){
 
   app.use('/api',requireAuth);
   app.get('/api/profile/me',async(req,res,next)=>{try{res.json({ok:true,data:{profile:await profileWithJobs(store,req.auth!.accountId)}});}catch(error){next(error);}});
-  app.put('/api/profile/me',async(req,res,next)=>{try{const patch:{displayName?:string;mbti?:Mbti}={};if(req.body.displayName)patch.displayName=String(req.body.displayName).slice(0,24);if(req.body.mbti)patch.mbti=mbtiSchema.parse(req.body.mbti);const profile=await store.updateProfile(req.auth!.accountId,patch);await scheduleAccount(store,req.auth!.accountId);res.json({ok:true,data:{profile}});}catch(error){next(error);}});
+  app.put('/api/profile/me',async(req,res,next)=>{try{const patch:{displayName?:string;mbti?:Mbti;avatarColor?:string}={};if(req.body.avatarColor!==undefined)patch.avatarColor=avatarColorSchema.parse(req.body.avatarColor);if(req.body.displayName)patch.displayName=String(req.body.displayName).slice(0,24);if(req.body.mbti)patch.mbti=mbtiSchema.parse(req.body.mbti);const profile=await store.updateProfile(req.auth!.accountId,patch);if(patch.avatarColor===undefined||patch.mbti||patch.displayName)await scheduleAccount(store,req.auth!.accountId);res.json({ok:true,data:{profile}});}catch(error){next(error);}});
   app.post('/api/profile/me/roles',async(req,res,next)=>{try{const input=roleSchema.parse(req.body);const role=await saveUserRole(store,req.auth!.accountId,input);await scheduleAccount(store,req.auth!.accountId);res.status(201).json({ok:true,data:{role}});}catch(error){next(error);}});
   const generateRole:express.RequestHandler=async(req,res,next)=>{try{const input=roleSchema.parse(req.body);const role=await saveUserRole(store,req.auth!.accountId,{...input,...(typeof req.body.id==='string'?{id:req.body.id}:{})},true);await scheduleAccount(store,req.auth!.accountId);res.status(202).json({ok:true,data:{role,task:{id:role.generation!.taskId,status:'queued'}}});}catch(error){next(error);}};
   app.post('/api/roles/generate',generateRole);

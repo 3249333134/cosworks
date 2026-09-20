@@ -10,7 +10,7 @@
 .settings-role-list{list-style:none;padding:0;margin:0;display:grid;gap:12px}
 .settings-role-card{min-width:0;border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);transition:border-color var(--fast) var(--ease)}
 .settings-role-card.is-expanded{border-color:var(--gold)}
-.settings-role-heading{display:flex;align-items:center;padding-right:8px}
+.settings-role-heading{position:sticky;top:0;z-index:5;display:flex;align-items:center;padding-right:8px;background:var(--surface);border-top-left-radius:var(--r-md);border-top-right-radius:var(--r-md)}
 .settings-role-toggle{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:16px 12px;border:0;border-radius:var(--r-md);background:transparent;color:var(--text);text-align:left}
 .settings-role-toggle:hover{background:var(--surface-hover)}
 .settings-role-toggle .role-glyph{width:40px;height:40px;flex:none;background:var(--gold-soft);color:var(--gold);font-size:1rem}

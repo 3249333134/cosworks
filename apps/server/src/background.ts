@@ -11,7 +11,7 @@ export async function saveUserRole(store:Store,accountId:string,input:Omit<IpRol
     if(input.id&&!previous)throw new Error('角色不存在或无权修改');
     if(previous&&input.version!==undefined&&input.version!==(previous.version??1))throw new Error('角色资料已更新，请刷新后再保存');
     const sameIdentity=previous?.ipTheme===input.ipTheme&&previous?.name===input.name;
-    let role=await tx.saveRole(accountId,{...input,version:(previous?.version??0)+1,generation:sameIdentity?previous?.generation:undefined});
+    let role=await tx.saveRole(accountId,{...input,avatarColor:input.avatarColor??previous?.avatarColor,version:(previous?.version??0)+1,generation:sameIdentity?previous?.generation:undefined});
     if(generate){
       const job=await tx.enqueueJob(newJob(`role:${role.id}:${role.version}`,'role',{role},accountId));
       role={...role,generation:{status:'queued',taskId:job.id,message:'已保存，资料补全中'}};await tx.saveRole(accountId,role);

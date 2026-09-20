@@ -22,12 +22,12 @@ const profile:any={accountId:'p0',displayName:'测试玩家',mbti:'INFP',roles:[
 function Fixture(){
  const [modal,setModal]=useState(false),[revision,setRevision]=useState(0);
  if(gameId==='disclosure')return <PageFrame className="play-surface" scope="test"><header>测试顶部</header><section className="play-stage"><button onClick={()=>setRevision(r=>r+1)}>模拟同步 {revision}</button><SummaryPanel id="long" title="长记录"><p>{text.repeat(8)}</p><input aria-label="草稿"/></SummaryPanel><button onClick={()=>setModal(true)}>打开抽屉</button></section><footer className="play-footer"><button className="primary">底部主操作</button></footer>{modal&&<DetailDialog title="长表单" onClose={()=>setModal(false)}>{Array.from({length:20},(_,i)=><label className="field" key={i}>字段{i}<input/></label>)}<button className="primary">保存</button></DetailDialog>}</PageFrame>;
- const props:any={profile,busy:false,notice:'',run:asyncNoop,onBack:noop,onLogout:noop,onSave:asyncNoop,onRolesChange:noop,onEditMbti:noop,onAddRole:noop,onCreate:noop,onJoin:noop,onRejoin:noop,onPickRole:noop,onSuccess:asyncNoop};
+ const props:any={profile,busy:false,notice:'',run:asyncNoop,onBack:noop,onLogout:noop,onSave:asyncNoop,onRolesChange:noop,onAvatarColorChange:noop,onEditMbti:noop,onAddRole:noop,onCreate:noop,onJoin:noop,onRejoin:noop,onPickRole:noop,onSuccess:asyncNoop};
  if(gameId==='auth')return <Auth {...props}/>;
  if(gameId==='home')return <Home {...props} recentOverride={[]}/>;
  if(gameId==='mbti')return <MbtiSetup {...props}/>;
  if(gameId==='role')return <RoleSetup {...props} room={room} draft={profile.roles[0]} onDraft={noop} onNotice={noop}/>;
  if(gameId==='room')return <RoomLobby {...props} room={{...room,game:null}} member={member} isHost={member.accountId==='p0'} onHome={noop} onRole={noop} onResume={noop} onPlan={asyncNoop} onHostAction={noop} onTimelineStart={noop} onStart={noop}/>;
- return <PlaySurface room={room} member={member} isHost={member.accountId==='p0'} hostOpen={false} setHostOpen={noop} busy={false} notice="" onRefresh={noop} run={asyncNoop} onExit={noop} onReplay={noop} onStartNext={noop} onLogout={noop} onEditMbti={noop}/>;
+ return <PlaySurface room={room} member={member} isHost={member.accountId==='p0'} hostOpen={false} setHostOpen={noop} busy={false} notice="" onRefresh={noop} run={params.get('interactive')==='1'?async task=>{await task();}:asyncNoop} onExit={noop} onReplay={noop} onStartNext={noop} onLogout={noop} onEditMbti={noop}/>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture/>);

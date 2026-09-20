@@ -1,3 +1,4 @@
+import { avatarStyle, roleAvatarColor } from './avatar-colors';
 import { useMemo, useState } from 'react';
 import type { IpRole } from '@ruxiju/shared';
 import { api } from './api';
@@ -15,7 +16,7 @@ export function SettingsRoles({roles,onChange}:{roles:IpRole[];onChange:(roles:I
     <div className="section-heading"><h2 className="section-label">IP 与角色</h2><button className="text-btn role-add" aria-expanded={expanded==='new'} onClick={()=>setExpanded(expanded==='new'?null:'new')}>{expanded==='new'?'收起新建':'添加角色'}</button></div>
     {expanded==='new'&&<RoleEditor key="new" role={empty} onSaved={saved} onGenerated={generated} onCancel={()=>setExpanded(null)}/>}
     <ul className="settings-role-list">{roles.map(role=><li key={role.id} className={`settings-role-card ${expanded===role.id?'is-expanded':''}`}>
-      <div className="settings-role-heading"><button className="settings-role-toggle" aria-expanded={expanded===role.id} onClick={()=>setExpanded(expanded===role.id?null:role.id)}><span className="role-glyph">{role.name[0]}</span><span className="settings-role-summary"><strong>{role.name}</strong><span className="settings-role-meta">{role.ipTheme}{role.isDefault&&<span className="settings-role-default">默认</span>}</span></span></button><button className="role-delete" disabled={pending!==null} onClick={()=>void remove(role.id)}>删除</button></div>
+      <div className="settings-role-heading"><button className="settings-role-toggle" aria-expanded={expanded===role.id} onClick={()=>setExpanded(expanded===role.id?null:role.id)}><span className="role-glyph" style={avatarStyle(role.avatarColor,roleAvatarColor(role.id))}>{role.name[0]}</span><span className="settings-role-summary"><strong>{role.name}</strong><span className="settings-role-meta">{role.ipTheme}{role.isDefault&&<span className="settings-role-default">默认</span>}</span></span></button><button className="role-delete" disabled={pending!==null} onClick={()=>void remove(role.id)}>删除</button></div>
       {expanded===role.id?<RoleEditor role={role} onSaved={saved} onGenerated={generated} onCancel={()=>setExpanded(null)}/>:role.generation&&<p className="role-message" role="status">{role.generation.message}</p>}
     </li>)}</ul>
     {!roles.length&&expanded!=='new'&&<p className="role-empty">还没有保存角色。</p>}{notice&&<p role="alert">{notice}</p>}

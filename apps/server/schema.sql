@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS user_profiles (
+  avatar_color CHAR(7) NULL,
   account_id CHAR(36) PRIMARY KEY,
   display_name VARCHAR(24) NOT NULL,
   mbti CHAR(4) NULL,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 );
 
 CREATE TABLE IF NOT EXISTS user_ip_roles (
+  avatar_color CHAR(7) NULL,
   id CHAR(36) PRIMARY KEY,
   account_id CHAR(36) NOT NULL,
   ip_theme VARCHAR(80) NOT NULL,
