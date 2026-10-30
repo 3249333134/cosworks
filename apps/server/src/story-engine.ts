@@ -9,7 +9,7 @@ function shuffle<T>(arr: readonly T[]): T[] {
 export interface StoryState {
   version: 2; stage: StoryStage; participants: StoryParticipant[]; order: string[];
   opening: string; endingHint: string; ending: string; tasks: Record<string,string>; source: 'ai'|'local'|'manual'|'legacy'|null;
-  segments: Array<{accountId:string;content:string;task:string;submittedAt:number;taskCompleted:boolean}>;
+  segments: Array<{accountId:string;content:string;task:string;submittedAt:number;taskCompleted:boolean;audioAssetId?:string|null}>;
   currentSpeakerIndex: number; currentRound: number; turnStartedAt: number|null; endingRevealed: boolean;
   votes: Record<string,{targetAccountId:string;votedAt:number}>;
   approvals: Record<string,Record<string,boolean>>; rulings: Record<string,StoryRuling>;
@@ -47,7 +47,7 @@ export function storyPublic(story:StoryState){
   return {
     stage:story.stage,opening:story.opening,endingHint:story.endingHint,...(story.endingRevealed?{ending:story.ending}:{}),source:story.source,
     participants:story.participants,order:story.order,readyToStart:Boolean(story.opening&&story.ending&&story.participants.every(p=>story.tasks[p.accountId])),
-    segments:story.segments.map(seg=>{const p=story.participants.find(p=>p.accountId===seg.accountId)!;return {accountId:seg.accountId,displayName:p?.displayName??'已离开玩家',playerRole:p?.playerRole??'',content:seg.content,submittedAt:new Date(seg.submittedAt).toISOString(),voteCount:visible?Object.values(story.votes).filter(v=>v.targetAccountId===seg.accountId).length:0};}),
+    segments:story.segments.map(seg=>{const p=story.participants.find(p=>p.accountId===seg.accountId)!;return {accountId:seg.accountId,displayName:p?.displayName??'已离开玩家',playerRole:p?.playerRole??'',content:seg.content,submittedAt:new Date(seg.submittedAt).toISOString(),voteCount:visible?Object.values(story.votes).filter(v=>v.targetAccountId===seg.accountId).length:0,audioAssetId:seg.audioAssetId??null};}),
     currentSpeakerId:speaker?.accountId??null,currentSpeakerName:speaker?.displayName??null,currentSpeakerRole:speaker?.playerRole??null,turnStartedAt:story.turnStartedAt,
     submittedCount:story.segments.length,total:story.participants.length,votedCount:Object.keys(story.votes).length,voterCount:eligibleVoters(story).length,
     points:visible?story.points:{},...(visible?{tasks:story.tasks,approvals:story.approvals,rulings:story.rulings,details:story.details}:{}),
@@ -142,7 +142,8 @@ export function handleStoryAction(room:RoomSnapshot,accountId:string,input:GameA
   else if(input.action==='story-submit-segment'){
     if(s.stage!=='relay'||s.order[s.currentSpeakerIndex]!==accountId)throw new Error('还没有轮到你接龙');
     if(s.segments.some(seg=>seg.accountId===accountId))throw new Error('你已经提交过段落');
-    s.segments.push({accountId,content:text(payload.content,'接龙段落',500),task:s.tasks[accountId]??'',submittedAt:Date.now(),taskCompleted:false});
+    const audioAssetId=typeof payload.audioAssetId==='string'&&payload.audioAssetId.trim()?payload.audioAssetId.trim().slice(0,64):null;
+    s.segments.push({accountId,content:text(payload.content,'接龙段落',500),task:s.tasks[accountId]??'',submittedAt:Date.now(),taskCompleted:false,audioAssetId});
     s.currentSpeakerIndex++;nextTurn(room,s);
   }else if(input.action==='story-vote'){
     if(s.stage!=='voting')throw new Error('当前不在投票阶段');

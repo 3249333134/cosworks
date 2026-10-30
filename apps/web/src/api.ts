@@ -24,6 +24,15 @@ export async function uploadImage(file:File,roomId?:string|null,onProgress?:(per
     xhr.onload=()=>{try{if(!xhr.responseText)throw new Error('游戏服务暂时不可用，请稍后重试');const body=JSON.parse(xhr.responseText);if(xhr.status>=400||!body.ok)throw new Error(body.error||'上传失败');resolve(body.data);}catch(error){reject(error instanceof SyntaxError?new Error('服务器返回了异常内容，请稍后重试'):error);}};xhr.send(form);
   });
 }
+export interface UploadedAudio { assetId:string; url:string; size:number; mime:string }
+export async function uploadAudio(blob:Blob,roomId?:string|null):Promise<UploadedAudio>{
+  if(blob.size>8*1024*1024)throw new Error('录音不能超过 8 MB');
+  const form=new FormData();form.append('file',blob,'recording');if(roomId)form.append('roomId',roomId);
+  const response=await fetch(API_BASE+'/media/upload-audio',{method:'POST',headers:token?{Authorization:'Bearer '+token}:{},body:form});
+  const text=await response.text();let body:{ok?:boolean;error?:string;data?:UploadedAudio};
+  try{body=JSON.parse(text) as typeof body;}catch{throw new Error(response.ok?'服务器返回了异常内容，请刷新后重试':'游戏服务暂时不可用，请稍后重试');}
+  if(!response.ok||!body.ok||!body.data)throw new Error(body.error||'录音上传失败，请重试');return body.data;
+}
 export function getTimeline(roomCode:string){return api<{timeline:PartyTimeline}>(`/rooms/${roomCode}/timeline`).then(r=>r.timeline);}
 export function getHistory(roomCode:string,sessionId:string){return api<{history:GameHistory}>(`/rooms/${roomCode}/sessions/${sessionId}/history`).then(r=>r.history);}
 export interface MemberHistoryEvent { id:string; actorAccountId:string|null; actorName:string|null; eventType:string; payload:Record<string,unknown>; createdAt:string; }

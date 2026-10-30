@@ -8,6 +8,10 @@
 .story-content details { border-top: 1px solid var(--line); padding-top: 14px; min-width: 0; }
 .story-content summary { cursor: pointer; min-height: 44px; padding: 10px 0; overflow-wrap: anywhere; }
 .story-fields { display: grid; gap: 16px; padding: 14px 0; }
+.story-compose { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); width: min(100%, 640px); }
+.story-compose .field { gap: 8px; }
+.story-compose .field textarea { min-height: 150px; }
+.story-compose .primary { width: 100%; }
 .story-content input, .story-content textarea { font-size: 16px; min-width: 0; max-width: 100%; }
 .story-content textarea { min-height: 112px; }
 .story-content button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }

@@ -16,6 +16,13 @@ const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_BYTES,f
   if(accepted.has(file.mimetype)||(heic&&/\.heic$/i.test(file.originalname)))done(null,true);
   else done(new Error('仅支持 JPEG、PNG、WebP、HEIC 图片'));
 }}).single('file');
+const audioExt:Record<string,string>={'audio/webm':'webm','audio/mp4':'m4a','audio/ogg':'ogg','audio/mpeg':'mp3','audio/aac':'aac','audio/wav':'wav'};
+const baseMime=(type:string)=>type.split(';')[0].trim().toLowerCase();
+const uploadAudio=multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_BYTES,files:1,fields:1},fileFilter:(_req,file,done)=>{
+  const type=baseMime(file.mimetype||'');
+  if(type.startsWith('audio/')||type==='application/octet-stream'||!type)done(null,true);
+  else done(new Error('仅支持录音音频文件'));
+}}).single('file');
 
 export function createMediaRoutes(store:Store){
   const router=Router();
@@ -42,6 +49,25 @@ export function createMediaRoutes(store:Store){
         await store.saveAsset(record);
         res.status(201).json({ok:true,data:{assetId:id,url:`/api/media/${id}`,thumb:`/api/media/${id}?thumb=1`,size:record.size,mime:record.mimeType,width:record.width,height:record.height}});
       }catch(error){await Promise.allSettled([unlink(resolve(DATA_DIR,imagePath)),unlink(resolve(DATA_DIR,thumbPath))]);throw error;}
+    })().catch(next);
+  }));
+  router.post('/api/media/upload-audio',requireAuth,(req,res,next)=>uploadAudio(req,res,error=>{
+    if(error)return next(new Error(error instanceof multer.MulterError&&error.code==='LIMIT_FILE_SIZE'?'录音不能超过 8 MB':error.message));
+    void (async()=>{
+      if(!req.file)throw new Error('请选择录音，上传字段名为 file');
+      const roomId=typeof req.body?.roomId==='string'&&req.body.roomId?req.body.roomId:null;
+      const fullType=req.file.mimetype||'audio/webm';
+      const type=baseMime(fullType);
+      if(type!=='application/octet-stream'&&!audioExt[type])throw new Error('不支持的录音格式');
+      const ext=audioExt[type]??'webm';
+      const id=randomUUID();const audioPath=`media/${id}.${ext}`;
+      await mkdir(resolve(DATA_DIR,'media'),{recursive:true});
+      try{
+        await writeFile(resolve(DATA_DIR,audioPath),req.file.buffer);
+        const record:AssetRecord={id,accountId:req.auth!.accountId,roomId,filename:(req.file.originalname||`recording.${ext}`).slice(0,255),mimeType:audioExt[type]?type:'audio/webm',size:req.file.buffer.length,width:null,height:null,thumbSize:null,createdAt:new Date().toISOString(),dataUrl:null,imagePath:audioPath,thumbPath:null,usedInSessionId:null,usedAt:null};
+        await store.saveAsset(record);
+        res.status(201).json({ok:true,data:{assetId:id,url:`/api/media/${id}`,size:record.size,mime:record.mimeType}});
+      }catch(error){await unlink(resolve(DATA_DIR,audioPath)).catch(()=>{});throw error;}
     })().catch(next);
   }));
   router.get('/api/media/:id',requireAuth,async(req,res,next)=>{try{

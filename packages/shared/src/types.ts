@@ -268,6 +268,7 @@ export interface StorySegmentOverview {
   content: string;
   voteCount: number;
   submittedAt: string | null;
+  audioAssetId?: string | null;
 }
 
 export type StoryStage = 'setup' | 'relay' | 'reveal' | 'voting' | 'review' | 'complete';
@@ -467,6 +468,7 @@ export interface GameHistory {
       voteCount: number;
       score: number;
       submittedAt: string | null;
+      audioAssetId?: string | null;
     }>;
     votes: Array<{ voterAccountId: string; voterName: string; targetAccountId: string; targetName: string }>;
     results: Array<{ accountId: string; displayName: string; playerRole: string; points: number; winner: boolean; loser?: boolean }>;

@@ -29,10 +29,14 @@ body { min-width:320px; }
 .summary-panel[open] > summary .summary-chevron { transform:rotate(180deg); }
 .summary-content { padding:0 0 16px; }
 .summary-content > :first-child { margin-top:0; }
+.summary-panel[open] > .summary-content:not([open]) { display:block; }
+.summary-panel:not([open]) > .summary-content:not([open]) { display:none; }
 .page-columns { display:grid; grid-template-columns:minmax(0,1fr); gap:24px; width:100%; text-align:left; }
 .page-main,.page-support { display:flex; flex-direction:column; gap:20px; min-width:0; }
 .page-support { align-self:start; }
 .shopping-game .page-support { order:-1; }
+.story-game .page-support { order:-1; }
+.summary-dialog-header { display:none; }
 .shopping-game .shopping-task { padding:0; border:0; background:transparent; }
 
 
@@ -62,6 +66,7 @@ html.dialog-open .adaptive-page > :is(.play-stage,.undercover-stage) { overflow:
   .adaptive-page:has(.page-support) > :is(.play-stage,.undercover-stage) { max-width:1180px; padding-inline:32px; }
   .page-columns { grid-template-columns:minmax(0,1fr) 300px; align-items:start; gap:32px; }
   .shopping-game .page-support { order:0; }
+  .story-game .page-support { order:0; }
   .adaptive-dialog .sheet { margin-bottom:20px; border-radius:16px; }
 }
 
@@ -172,11 +177,19 @@ html,body,#root { overflow:hidden; }
  .adaptive-page .page-support .summary-content[open] { max-height:none; }
 }
 @media(max-width:1023px),(max-height:600px) {
- .summary-content[open] { position:fixed; inset:auto 0 0; width:min(100%,720px); max-height:85dvh; margin:0 auto; border-radius:16px 16px 0 0; }
- .summary-content::backdrop { background:rgb(0 0 0 / .65); }
- .summary-dialog-header { display:flex; justify-content:space-between; align-items:center; flex:none; gap:10px; padding:8px 16px; }
- .summary-dialog-header button { min-width:44px; min-height:44px; border:0; background:transparent; color:var(--text); font-size:1.5rem; }
+ /* SummaryPanel 已改为始终内联展示，弹窗底部抽屉模式废弃；header 全局隐藏 */
+ .summary-content[open] { position:static; max-height:none; }
  .adaptive-page .page-columns { grid-template-columns:minmax(0,1fr); }
+ .story-game .page-columns { grid-template-rows:none; height:auto; overflow-y:auto; }
+ .story-game .page-support { flex-direction:column; flex-wrap:nowrap; gap:12px; align-self:auto; }
+ .story-game .page-support > * { flex:none; width:100%; }
+ .story-game .page-main { overflow:visible; min-height:0; }
+ .story-game .page-main > .task-scroll { overflow:visible; flex:none; min-height:0; }
+ .story-game .page-main > .task-actions { flex:none; }
+ .story-game .play-stage > h1 { max-height:none; overflow:visible; }
+ .story-game .stage-symbol { width:36px; height:36px; margin:0 auto 2px; }
+ .story-game .play-stage { padding-block:6px; gap:6px; }
+ .story-game .page-columns { gap:12px; }
 }
 @media(max-height:600px) {
  .adaptive-page > :is(.play-stage,.undercover-stage) { overflow:hidden; height:100%; gap:4px; padding-block:4px; }

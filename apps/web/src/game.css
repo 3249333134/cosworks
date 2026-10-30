@@ -29,19 +29,21 @@
 
 .dont-game .play-stage,
 .must-game .play-stage { position: relative; }
-.dont-game .play-stage h1,
-.must-game .play-stage h1 {
+.adaptive-page.dont-game .play-stage h1,
+.adaptive-page.must-game .play-stage h1 {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   width: 100%;
   max-width: none;
-  font-size: clamp(5rem, 32vw, 14rem);
+  max-height: none;
+  overflow: visible;
+  font-size: clamp(2.5rem, min(28vw, max(6vw, calc(86vw / var(--card-chars, 3)))), 9rem);
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: -.05em;
-  padding: clamp(180px, 42vh, 420px) 20% clamp(120px, 28vh, 280px);
+  line-height: 1.1;
+  letter-spacing: -.03em;
+  padding: clamp(150px, 32vh, 340px) 6% clamp(110px, 22vh, 240px);
   word-break: break-all;
   text-wrap: balance;
   pointer-events: none;
@@ -1686,12 +1688,14 @@
 .story-saved-hint { margin: 4px 0 0; color: var(--muted); font-size: .82rem; }
 .story-waiting { margin: 14px 0 0; color: var(--muted); font-size: .9rem; }
 .story-task-chip {
-  display: grid; gap: 4px; margin: 0 0 14px; padding: 12px 14px;
-  border: 1px solid var(--gold); border-radius: 12px;
-  background: #2a2616; color: var(--text);
+  display: grid; gap: 6px; margin: 0 0 18px; padding: 16px 18px;
+  border: 2px solid var(--gold); border-radius: 14px;
+  background: linear-gradient(135deg, #3a2f10, #2a2616);
+  box-shadow: 0 0 0 1px rgb(242 207 94 / .2), 0 6px 20px rgb(0 0 0 / .4);
 }
-.story-task-chip span { color: #f2cf5e; font-weight: 700; font-size: .74rem; }
-.story-task-chip strong { font-size: .92rem; line-height: 1.5; overflow-wrap: anywhere; }
+.story-game .page-support .story-task-chip { position: sticky; bottom: 0; z-index: 2; margin: 0; }
+.story-task-chip span { color: #f2cf5e; font-weight: 800; font-size: .78rem; letter-spacing: .05em; }
+.story-task-chip strong { font-size: 1.1rem; line-height: 1.6; overflow-wrap: anywhere; }
 .story-opening-box,
 .story-prev-segment,
 .story-ending-box {
@@ -1701,10 +1705,11 @@
 }
 .story-opening-box span,
 .story-prev-segment span,
-.story-ending-box span { color: var(--muted); font-size: .74rem; font-weight: 700; }
+.story-ending-box span { color: #f2cf5e; font-size: .8rem; font-weight: 800; letter-spacing: .04em; }
 .story-opening-box p,
 .story-prev-segment p,
-.story-ending-box p { margin: 0; font-size: .9rem; line-height: 1.55; overflow-wrap: anywhere; }
+.story-ending-box p { margin: 0; font-size: .95rem; line-height: 1.65; overflow-wrap: anywhere; }
+.story-opening-box { border-color: var(--gold); border-left-width: 3px; }
 .story-relay-mine { display: grid; gap: 12px; margin-top: 14px; width: min(100%, 560px); }
 .story-relay-mine textarea {
   width: 100%; min-height: 110px; resize: vertical;
