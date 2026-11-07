@@ -5,6 +5,7 @@ import { newJob, type BackgroundJob } from './jobs.js';
 import { aiJson } from './ai-client.js';
 import { validateStoryBundle } from './story-engine.js';
 import { storyState } from './story-engine.js';
+import { resolveRoomRoster } from './profile-roles.js';
 
 export type PoolGame='dont'|'must'|'draw'|'story';
 export interface DrawWord {word:string;aliases:string[];difficulty:'easy'|'medium'}
@@ -16,19 +17,18 @@ const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).d
 const normalize=(s:string)=>s.normalize('NFKC').replace(/[\s“”"'，。！？、]/g,'').toLowerCase();
 const unsafe=/(亲吻|拥抱|脱衣|喝酒|饮酒|身体接触|隐私|密码|自残|自杀|辱骂|跳楼|购买道具)/;
 export async function poolSpecs(store:Store,room:RoomSnapshot):Promise<PoolSpec[]>{
-  const profiles=await Promise.all(room.members.map(async member=>{
-    const profile=await store.getProfile(member.accountId);
-    const role=profile.roles.find(r=>r.id===member.ipRoleId)??profile.roles.find(r=>r.ipTheme===room.ipTheme&&r.isDefault)??profile.roles.find(r=>r.ipTheme===room.ipTheme);
-    return {member,profile,role};
-  }));
-  const roster=profiles.filter(p=>p.role&&p.profile.mbti).sort((a,b)=>a.member.accountId.localeCompare(b.member.accountId));
-  const participants=roster.map(({member,role})=>({accountId:member.accountId,displayName:member.displayName,playerRole:role!.name,persona:[...role!.personaTags,role!.quote,role!.signatureAction,role!.ability].filter(Boolean).join('；')||role!.name}));
+  // 与旧实现保持逐字节一致：全部成员参与解析，但只有「有角色且有 MBTI」的成员进入池；
+  // fingerprint 的输入结构不变，避免线上已有池全部失配。
+  const roster=(await resolveRoomRoster(store,room))
+    .filter(entry=>entry.role&&entry.mbti)
+    .sort((a,b)=>a.accountId.localeCompare(b.accountId));
+  const participants=roster.map(entry=>({accountId:entry.accountId,displayName:entry.displayName,playerRole:entry.role!.name,persona:[...entry.role!.personaTags,entry.role!.quote,entry.role!.signatureAction,entry.role!.ability].filter(Boolean).join('；')||entry.role!.name}));
   const specs:PoolSpec[]=[];
-  for(const {member,profile,role} of roster){
-    const fingerprint=hash({role:{...role,version:undefined,isDefault:undefined,generation:undefined},mbti:profile.mbti,playerCount:roster.length,rules:1});
-    for(const gameId of ['dont','must'] as const)specs.push({code:room.code,roomId:room.id,gameId,key:`content-pool:v1:${room.id}:${gameId}:${member.accountId}`,fingerprint,accountId:member.accountId,context:{gameId,role:role!,mbti:profile.mbti!,playerCount:roster.length,cameraAvailable:false},participants});
+  for(const entry of roster){
+    const fingerprint=hash({role:{...entry.role,version:undefined,isDefault:undefined,generation:undefined},mbti:entry.mbti,playerCount:roster.length,rules:1});
+    for(const gameId of ['dont','must'] as const)specs.push({code:room.code,roomId:room.id,gameId,key:`content-pool:v1:${room.id}:${gameId}:${entry.accountId}`,fingerprint,accountId:entry.accountId,context:{gameId,role:entry.role!,mbti:entry.mbti!,playerCount:roster.length,cameraAvailable:false},participants});
   }
-  const fingerprint=hash({participants,profiles:roster.map(p=>[p.role?.version,p.profile.mbti]),rules:1});
+  const fingerprint=hash({participants,profiles:roster.map(p=>[p.role?.version,p.mbti]),rules:1});
   for(const gameId of ['draw','story'] as const){
     const selected=gameId==='story'&&room.currentGame==='story'?storyState(room)?.participants??participants:participants;
     specs.push({code:room.code,roomId:room.id,gameId,key:`content-pool:v1:${room.id}:${gameId}`,fingerprint:gameId==='story'?hash({participants:selected,rules:1}):fingerprint,accountId:null,participants:selected});

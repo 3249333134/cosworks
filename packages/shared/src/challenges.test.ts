@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { buildChallenge, GAME_IDS, isDistinctSecretMission, isLowCorrelationSecretMission, MBTI_TYPES, validateChallenge, type IpRole } from './index.js';
+import { buildChallenge, GAME_IDS, isDistinctSecretMission, isLowCorrelationSecretMission, isPartyGame, MBTI_TYPES, validateChallenge, type IpRole } from './index.js';
 
 const role: IpRole = { id:'r1', ipTheme:'罗小黑战记', name:'罗小黑', personaTags:['灵活','好奇'], quote:'我想回家', signatureAction:'轻轻点头', ability:'空间系能力', isDefault:true };
 
 describe('safe challenge matrix', () => {
-  it('builds a valid challenge for every game and MBTI', () => {
-    for (const gameId of GAME_IDS) for (const mbti of MBTI_TYPES) {
+  it('builds a valid challenge for every AI game and MBTI', () => {
+    for (const gameId of GAME_IDS.filter(id => !isPartyGame(id))) for (const mbti of MBTI_TYPES) {
       const challenge = buildChallenge({ gameId, mbti, role, cameraAvailable:true });
       expect(validateChallenge(challenge)).toBe(true);
       expect(challenge.requirements.physicalContact).toBe(false);
       expect(challenge.requirements.props).toBe('none');
+    }
+  });
+  it('keeps light party games out of AI challenge generation', () => {
+    for (const gameId of GAME_IDS.filter(id => isPartyGame(id))) {
+      expect(() => buildChallenge({ gameId, mbti:'ENFP', role, cameraAvailable:true })).toThrow(/玩法面板/);
     }
   });
   it('builds a private trigger mission in the required format and avoids duplicates',()=>{

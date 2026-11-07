@@ -98,7 +98,11 @@ export function validateResearch(raw:unknown,sources:ResearchSource[]):RoleResea
     const excerpt=typeof field?.excerpt==='string'?field.excerpt:'';
     const excerptMatches=excerpt&&normMatch(source.text).includes(normMatch(excerpt));
     if(key==='personaTags'){if(Array.isArray(field?.value))result.personaTags=field.value.filter((v):v is string=>typeof v==='string'&&v.length>0&&v.length<=12).slice(0,5);}
-    else if(typeof field?.value==='string'&&field.value.length<=100)result[key]=field.value;
+    else if(typeof field?.value==='string'&&field.value.length<=100){
+      // 台词必须是原文里逐字出现的内容，避免 AI 编造引用
+      if(key==='quote'&&!normMatch(source.text).includes(normMatch(field.value)))continue;
+      result[key]=field.value;
+    }
     if(excerptMatches)result.evidence[key]=`${source.url}\n${excerpt.slice(0,300)}`;
   }
   return result;

@@ -1,4 +1,6 @@
 import type { Challenge, GameId, IpRole, Mbti } from './types.js';
+import { flavorBucket } from './party-flavor.js';
+import { bucketActionTone, bucketSocialTone, clipFlavor, roleEpithet } from './role-flavor.js';
 
 type Template = Omit<Challenge, 'id' | 'content' | 'roleTags'> & { content: (role: IpRole, mbti: Mbti, playerCount: number) => string };
 
@@ -101,20 +103,69 @@ function secretMission(role:IpRole,mbti:Mbti,excluded:string[]=[]){
 const templates: Record<GameId, Template[]> = {
   dont: [safe('dont','秘密禁令','tap',1,false,()=>DONT_CHALLENGE_WORDS[0],'完成该动作或说出该词后被其他玩家明确指出')],
   must: [safe('must','触发秘密任务','tap',1,false,(r,m)=>secretMission(r,m),'看见他人完成触发动作后，立即完成卡片要求的动作')],
-  witch: [safe('witch','秘密落点','tap',1,false,(r)=>`把「${r.ability || r.name + '的能力'}」藏进一个未选择的格子。`,'点击一个可用格子并确认')],
-  camera: [safe('camera','避开镜头','camera',2,true,(r)=>`以${r.name}的姿态完成一个定格动作，并在倒计时内避开镜头。`,'摄像成功或主持人现场判定')],
-  draw: [safe('draw','画出角色','draw',1,false,(r)=>`画出能让大家想到「${r.name}」的一个特征。`,'提交包含有效笔迹的画板')],
-  imitate: [safe('imitate','角色瞬间','speak',2,true,(r)=>`用一句话和一个动作演出${r.name}的标志性瞬间。`,'完成表演并进入匿名评分')],
-  undercover: [safe('undercover','秘密描述','speak',2,true,(r)=>`从${r.name}的视角描述你的秘密词，不要直接说出它。`,'完成一句不含答案的描述')],
-  truth: [safe('truth','角色人设版','tap',1,false,(r)=>`围绕${r.name}写两条严格符合原作的描述和一条可信的虚构描述。`,'提交三条角色描述并标记虚构项')],
-  story: [safe('story','接龙任务','speak',2,true,(r)=>`在你的段落中，让${r.name}用自己的方式推进剧情，同时完成一个隐藏目标。`,'提交一段 2-5 句话的续写，与上文连续且包含自己的角色')],
-  auction: [safe('auction','随身拍品','camera',2,true,(r)=>`手持你私藏的一件随身物品，扮演${r.name}的身份介绍它的来历，并让大家竞相出价。`,'拍照上传物品并填写名称与介绍文本')],
-  shopping: [safe('shopping','一起采购','tap',1,false,(r)=>`按${r.name}的角色气质采购一件聚会有用的物品。`,'在拍卖后的个人预算内登记采购结果')]
+  witch: [safe('witch','秘密落点','tap',1,false,(r,m)=>{
+    const b=flavorBucket(m);
+    const ability=r.ability.trim();
+    return b==='observe'
+      ?`悄悄把「${ability||r.name+'的能力'}」藏进一个最不起眼的格子。`
+      :`把「${ability||r.name+'的能力'}」${bucketActionTone(b)}，藏进一个未选择的格子。`;
+  },'点击一个可用格子并确认')],
+  camera: [safe('camera','避开镜头','camera',2,true,(r,m)=>{
+    const b=flavorBucket(m);
+    const tag=r.personaTags[0]?.trim();
+    return `以${roleEpithet(r)}的姿态${bucketActionTone(b)}一个定格动作${tag?`，带一点「${clipFlavor(tag,10)}」的神态`:''}，${bucketSocialTone(b)}，并在倒计时内避开镜头。`;
+  },'摄像成功或主持人现场判定')],
+  draw: [safe('draw','画出角色','draw',1,false,(r,m)=>{
+    const b=flavorBucket(m);
+    const action=r.signatureAction.trim();
+    return b==='verbal'&&r.quote.trim()
+      ?`画出能让大家想到「${r.name}」的一个特征，可以配上你印象里「${clipFlavor(r.quote,18)}」的感觉。`
+      :`画出能让大家想到「${r.name}」的一个特征${action?`，最好是${clipFlavor(action,12)}的瞬间`:''}。`;
+  },'提交包含有效笔迹的画板')],
+  imitate: [safe('imitate','角色瞬间','speak',2,true,(r,m)=>{
+    const b=flavorBucket(m);
+    const action=r.signatureAction.trim();
+    const tag=r.personaTags[0]?.trim();
+    if(b==='perform')return `用最放得开的方式演出${r.name}的标志性瞬间${action?`，顺手带出「${clipFlavor(action,12)}」`:''}，让全场一眼认出。`;
+    if(b==='observe')return `细细还原${r.name}的一个小习惯${tag?`（${clipFlavor(tag,10)}）`:''}，用细节让最熟的人猜出你是谁。`;
+    if(b==='verbal'&&r.quote.trim())return `用${r.name}的语气说出「${clipFlavor(r.quote,18)}」，再用一个动作补完这个瞬间。`;
+    return `用一句话和一个动作演出${r.name}的标志性瞬间，${bucketSocialTone(b)}。`;
+  },'完成表演并进入匿名评分')],
+  undercover: [safe('undercover','秘密描述','speak',2,true,(r,m)=>{
+    const b=flavorBucket(m);
+    if(b==='observe')return `从${r.name}的视角给出一个最小但准确的描述，不要直接说出你的秘密词。`;
+    if(b==='verbal'&&r.quote.trim())return `用「${clipFlavor(r.quote,18)}」的语感描述你的秘密词，不要直接说出它。`;
+    return `从${r.name}的视角描述你的秘密词，${bucketSocialTone(b)}，不要直接说出它。`;
+  },'完成一句不含答案的描述')],
+  truth: [safe('truth','角色人设版','tap',1,false,(r)=>{
+    const tag=r.personaTags[0]?.trim();
+    return `围绕${roleEpithet(r)}写两条严格符合原作的描述和一条可信的虚构描述${tag?`，至少一条要踩中「${clipFlavor(tag,10)}」这个特质`:''}。`;
+  },'提交三条角色描述并标记虚构项')],
+  story: [safe('story','接龙任务','speak',2,true,(r,m)=>{
+    const b=flavorBucket(m);
+    const ability=r.ability.trim();
+    return b==='perform'
+      ?`在你的段落中，让${r.name}用${ability?`「${clipFlavor(ability,12)}」`:'自己的招牌方式'}制造一个全场记得住的高光时刻，同时完成一个隐藏目标。`
+      :`在你的段落中，让${r.name}用自己的方式悄悄推进剧情${ability?`（可借${clipFlavor(ability,12)}）`:''}，同时完成一个隐藏目标。`;
+  },'提交一段 2-5 句话的续写，与上文连续且包含自己的角色')],
+  auction: [safe('auction','随身拍品','camera',2,true,(r,m)=>{
+    const b=flavorBucket(m);
+    return `手持你私藏的一件随身物品，扮演${r.name}的身份${b==='verbal'&&r.quote.trim()?`用「${clipFlavor(r.quote,18)}」的语气`:bucketSocialTone(b)}介绍它的来历，并让大家竞相出价。`;
+  },'拍照上传物品并填写名称与介绍文本')],
+  shopping: [safe('shopping','一起采购','tap',1,false,(r,m)=>{
+    const b=flavorBucket(m);
+    const tag=r.personaTags[0]?.trim();
+    return `按${r.name}的角色气质${tag?`（${clipFlavor(tag,10)}）`:''}${b==='speed'?'果断':'用心'}采购一件聚会有用的物品。`;
+  },'在拍卖后的个人预算内登记采购结果')],
+  // 轻量玩法不生成个人 AI 挑战，这里的占位只用于满足 Record<GameId, Template[]> 的类型完整性。
+  werewolf: [], dice: [], kings: [], memory: [], turtle: [], truthdare: [], never: [],
+  reaction: [], whoami: [], charades: [], twenty: [], describe: [], quiz: []
 };
 
 export interface ChallengeContext { gameId: GameId; mbti: Mbti; role: IpRole; playerCount?: number; seenIds?: string[]; excludedContents?: string[]; cameraAvailable?: boolean }
 
 export function buildChallenge(context: ChallengeContext): Challenge {
+  if(templates[context.gameId].length===0)throw new Error('该玩法由主持人在玩法面板中发牌，不支持单独生成内容');
   if(context.gameId==='dont'){
     const source=templates.dont[0];const excluded=new Set(context.excludedContents??[]);const seed=[context.role.ipTheme,context.role.name,context.mbti,...context.role.personaTags].join('|');
     const start=[...seed].reduce((total,char)=>((total*31)+char.charCodeAt(0))>>>0,0)%DONT_CHALLENGE_WORDS.length;

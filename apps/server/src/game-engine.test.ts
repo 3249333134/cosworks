@@ -166,7 +166,7 @@ describe('auction item game',()=>{
     expect(()=>handleGameAction(r,...aucAct('a','bad-2','auction-set-budget',{initialBudget:-0.01}))).toThrow('初始金额必须在 0.00～1000000.00 元之间');
     expect(()=>handleGameAction(r,...aucAct('a','bad-3','auction-set-budget',{initialBudget:1_000_001}))).toThrow('初始金额必须在 0.00～1000000.00 元之间');
   });
-  it('3. setup阶段：每人上传一件物品，物品顺序与提交顺序一致，重复上传会报错，全员到齐后进入preview并下发lots数组',()=>{
+  it('3. setup阶段：每人可上传多件物品，物品顺序与提交顺序一致，超过9件报错，主持推进后进入preview并下发lots数组',()=>{
     const r=start();
     handleGameAction(r,...aucAct('a','b-a','auction-set-budget',{initialBudget:100}));
     handleGameAction(r,...aucAct('b','b-b','auction-set-budget',{initialBudget:100}));
@@ -176,13 +176,17 @@ describe('auction item game',()=>{
     expect(r.game?.publicState).toMatchObject({stage:'setup',itemsSubmitted:1});
     const lots0=(r.game!.publicState as any).lots as Array<{lotId:string;sellerAccountId:string;title:string}>;
     expect(lots0).toHaveLength(1);expect(lots0[0].title).toBe('旧钢笔');expect(lots0[0].sellerAccountId).toBe('a');
-    expect(()=>handleGameAction(r,...aucAct('a','si-a2','auction-submit-item',{assetId:'asset-a2',title:'重复',story:'每人只能一件。'}))).toThrow('你已经提交过一件物品');
+    // 同一人可以继续拍第二件
+    handleGameAction(r,...aucAct('a','si-a2','auction-submit-item',{assetId:'asset-a2',title:'新台灯',story:'搬家时买的。'}));
+    expect((r.game!.publicState as any).lots).toHaveLength(2);
     expect(()=>handleGameAction(r,...aucAct('b','si-b','auction-submit-item',{assetId:'asset-b',title:'',story:'没名字。'}))).toThrow('物品名称需要 1～20 个字');
     handleGameAction(r,...aucAct('b','si-b2','auction-submit-item',{assetId:'asset-b',title:'明信片',story:'旅行手绘。'}));
     handleGameAction(r,...aucAct('c','si-c','auction-submit-item',{assetId:'asset-c',title:'老怀表',story:'爷爷传下来的。'}));
+    expect(r.game?.publicState.stage).toBe('setup');
+    advanceGameStage(r); // 主持点“预览拍品”后才进入 preview
     expect(r.game?.publicState.stage).toBe('preview');
     const lots=(r.game!.publicState as any).lots as Array<{title:string}>;
-    expect(lots.map(l=>l.title)).toEqual(['旧钢笔','明信片','老怀表']);
+    expect(lots.map(l=>l.title)).toEqual(['旧钢笔','新台灯','明信片','老怀表']);
   });
   it('3b. setup→preview后，gameOverview.auction.lots 和 lotOrder 同步下发',()=>{
     const r=start();
@@ -192,12 +196,13 @@ describe('auction item game',()=>{
     handleGameAction(r,...aucAct('a','si-a','auction-submit-item',{assetId:'asset-a',title:'钢笔',story:'A的钢笔。'}));
     handleGameAction(r,...aucAct('b','si-b','auction-submit-item',{assetId:'asset-b',title:'明信片',story:'B的明信片。'}));
     handleGameAction(r,...aucAct('c','si-c','auction-submit-item',{assetId:'asset-c',title:'怀表',story:'C的怀表。'}));
+    advanceGameStage(r);
     expect(r.game?.publicState.stage).toBe('preview');
     const overview=gameOverview(r,'b');
     expect(overview?.auction?.lots).toHaveLength(3);
     expect(overview?.auction?.lotOrder).toHaveLength(3);
     expect(overview?.auction?.lots.map(l=>l.title)).toEqual(['钢笔','明信片','怀表']);
-    expect(overview?.auction?.itemsByAccount).toEqual({a:overview!.auction!.lots[0].lotId,b:overview!.auction!.lots[1].lotId,c:overview!.auction!.lots[2].lotId});
+    expect(overview?.auction?.itemsByAccount).toEqual({a:[overview!.auction!.lots[0].lotId],b:[overview!.auction!.lots[1].lotId],c:[overview!.auction!.lots[2].lotId]});
   });
   it('4. bidding出价规则：出售人不能出价、少于+0.1加价拒绝、余额不足拒绝、合法出价写入topBid并留下bidHistory',()=>{
     const r=start();
@@ -207,12 +212,13 @@ describe('auction item game',()=>{
     handleGameAction(r,...aucAct('a','si-a','auction-submit-item',{assetId:'asset-a',title:'钢笔',story:'A的钢笔。'}));
     handleGameAction(r,...aucAct('b','si-b','auction-submit-item',{assetId:'asset-b',title:'明信片',story:'B的明信片。'}));
     handleGameAction(r,...aucAct('c','si-c','auction-submit-item',{assetId:'asset-c',title:'怀表',story:'C的怀表。'}));
+    advanceGameStage(r); // setup→preview
     advanceGameStage(r); // preview→bidding 第一件：A的钢笔
     expect(r.game?.publicState.stage).toBe('bidding');
     expect((r.game!.publicState as any).currentLot.sellerAccountId).toBe('a');
     expect(()=>handleGameAction(r,...aucAct('a','sell-bid','auction-bid',{price:10}))).toThrow('出售人不能给自己的物品出价');
     // 最低出价0.1
-    expect(()=>handleGameAction(r,...aucAct('b','low','auction-bid',{price:0.05}))).toThrow('出价必须 ≥ 当前最高价 + 0.1 元（当前最低可出：0.10 元）');
+    expect(()=>handleGameAction(r,...aucAct('b','low','auction-bid',{price:0.05}))).toThrow('出价必须 ≥ 起拍价 0.10 元');
     handleGameAction(r,...aucAct('b','b1','auction-bid',{price:0.10}));
     expect((r.game!.publicState as any).topBid).toMatchObject({accountId:'b',price:0.1});
     // 再次必须≥0.2
@@ -234,6 +240,7 @@ describe('auction item game',()=>{
     handleGameAction(r,...aucAct('a','si-a','auction-submit-item',{assetId:'asset-a',title:'钢笔',story:'A'}));
     handleGameAction(r,...aucAct('b','si-b','auction-submit-item',{assetId:'asset-b',title:'明信片',story:'B'}));
     handleGameAction(r,...aucAct('c','si-c','auction-submit-item',{assetId:'asset-c',title:'怀表',story:'C'}));
+    advanceGameStage(r); // setup→preview
     advanceGameStage(r); // 进入第一件：A的钢笔
     handleGameAction(r,...aucAct('b','bid-a-b','auction-bid',{price:10.00}));
     handleGameAction(r,...aucAct('c','bid-a-c','auction-bid',{price:20.00}));
@@ -264,6 +271,7 @@ describe('auction item game',()=>{
     handleGameAction(r,...aucAct('a','si-a','auction-submit-item',{assetId:'a1',title:'笔',story:'s'}));
     handleGameAction(r,...aucAct('b','si-b','auction-submit-item',{assetId:'b1',title:'卡',story:'s'}));
     handleGameAction(r,...aucAct('c','si-c','auction-submit-item',{assetId:'c1',title:'表',story:'s'}));
+    advanceGameStage(r); // setup→preview
     const orderBefore=(r.game!.publicState as any).lotOrder as string[];
     expect(orderBefore).toHaveLength(3);
     expect(()=>handleGameAction(r,...aucAct('b','guest-reorder','auction-reorder',{lotOrder:[orderBefore[2],orderBefore[1],orderBefore[0]]}))).toThrow('只有主持能重排拍品顺序');
@@ -284,7 +292,8 @@ describe('auction item game',()=>{
     handleGameAction(r,...aucAct('a','si-a','auction-submit-item',{assetId:'a1',title:'钢笔',story:'A'}));
     handleGameAction(r,...aucAct('b','si-b','auction-submit-item',{assetId:'b1',title:'明信片',story:'B'}));
     handleGameAction(r,...aucAct('c','si-c','auction-submit-item',{assetId:'c1',title:'怀表',story:'C'}));
-    advanceGameStage(r);
+    advanceGameStage(r); // setup→preview
+    advanceGameStage(r); // preview→bidding
     // 第一件A的钢笔：B出 50 → 买走
     handleGameAction(r,...aucAct('b','bid1','auction-bid',{price:50}));
     handleGameAction(r,...aucAct('a','sold1','auction-sold'));

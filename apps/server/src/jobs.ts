@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Store } from './store.js';
 
 export interface BackgroundJob {
-  id:string; key:string; kind:'role'|'prepare'|'pool'; accountId:string|null;
+  id:string; key:string; kind:'role'|'prepare'|'pool'|'party-pool'; accountId:string|null;
   payload:Record<string,unknown>; status:'queued'|'running'|'complete'|'failed';
   attempts:number; runAt:number; leaseUntil:number; leaseToken:string|null; error:string|null;
 }

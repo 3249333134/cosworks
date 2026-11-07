@@ -2,6 +2,7 @@ import type { IpRole, UserProfile } from '@ruxiju/shared';
 import type { Store } from './store.js';
 import { newJob, startWorker, type BackgroundJob } from './jobs.js';
 import { generatePoolCommit, prepareRoom, scheduleAccount } from './content-pools.js';
+import { generatePartyPoolCommit } from './party-pools.js';
 import { researchRole, type RoleResearch } from './role-research.js';
 import { config } from './config.js';
 
@@ -42,6 +43,7 @@ export async function applyRoleResearch(tx:Store,job:BackgroundJob,result:RoleRe
 export async function handleBackgroundJob(store:Store,job:BackgroundJob):Promise<(tx:Store)=>Promise<void>>{
   if(job.kind==='prepare')return async tx=>{await prepareRoom(tx,String(job.payload.code));};
   if(job.kind==='pool')return generatePoolCommit(store,job);
+  if(job.kind==='party-pool')return generatePartyPoolCommit(store,job);
   const before=job.payload.role as unknown as IpRole;
   const profile=await store.getProfile(job.accountId!);const current=profile.roles.find(r=>r.id===before.id);
   if(!current||current.generation?.taskId!==job.id||current.ipTheme!==before.ipTheme||current.name!==before.name)return async()=>{};

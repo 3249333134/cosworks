@@ -4,7 +4,14 @@ export const MBTI_TYPES = [
 ] as const;
 
 export type Mbti = typeof MBTI_TYPES[number];
-export type GameId = 'dont' | 'must' | 'witch' | 'camera' | 'draw' | 'imitate' | 'undercover' | 'truth' | 'story' | 'auction' | 'shopping';
+export type GameId = 'dont' | 'must' | 'witch' | 'camera' | 'draw' | 'imitate' | 'undercover' | 'truth' | 'story' | 'auction' | 'shopping'
+  | 'werewolf' | 'dice' | 'kings' | 'memory' | 'turtle' | 'truthdare' | 'never' | 'reaction' | 'whoami' | 'charades' | 'twenty' | 'describe' | 'quiz';
+/** 个性化桶位：MBTI 加权与文案变体的依据（定义在 types 供视图共用） */
+export type FlavorBucket = 'perform' | 'observe' | 'verbal' | 'speed';
+/** 轻量玩法：主持人驱动、手机只负责发牌与阶段提示 */
+export const PARTY_GAME_IDS = ['werewolf','dice','kings','memory','turtle','truthdare','never','reaction','whoami','charades','twenty','describe','quiz'] as const;
+export type PartyGameId = typeof PARTY_GAME_IDS[number];
+export function isPartyGame(gameId: string | null | undefined): gameId is PartyGameId { return Boolean(gameId) && (PARTY_GAME_IDS as readonly string[]).includes(gameId as string); }
 export type RoomStatus = 'waiting' | 'ready' | 'running' | 'paused' | 'settled' | 'stopped';
 export type HostRole = 'owner' | 'cohost' | 'reviewer' | null;
 
@@ -208,7 +215,7 @@ export interface GameOverview {
     priceIncrement: number;
     wallets: Record<string, number>;
     bidHistory: Array<{ accountId: string; displayName: string; price: number; bidAt: string }>;
-    itemsByAccount: Record<string, string>;
+    itemsByAccount: Record<string, string[]>;
     soldCount: number;
     lastActionAt: number | null;
     auctioneerMode: 'free' | 'designated';
@@ -219,6 +226,7 @@ export interface GameOverview {
       auctionRanking: Array<{ lotId: string; title: string; soldPrice: number | null; sellerName: string; winnerName: string | null }>;
     };
   };
+  party?: PartyView;
   story?: {
     stage: StoryStage;
     opening: string;
@@ -258,6 +266,68 @@ export interface GameOverview {
 }
 
 export interface ShoppingTask { color: string; purpose: string; suggestion: string; brief: string }
+
+/** 轻量玩法的统一视图：服务端已按账号裁剪私密内容 */
+export interface PartyView {
+  gameId: PartyGameId;
+  mode: 'deal' | 'draw' | 'roll';
+  stage: 'playing' | 'reveal' | 'complete';
+  round: number;
+  totalRounds: number;
+  isHost: boolean;
+  isMyTurn: boolean;
+  turnAccountId: string | null;
+  turnName: string | null;
+  /** 当前牌面；answer 仅在揭晓后下发 */
+  current: PartyCardView | null;
+  /** 发牌型玩法：我自己的身份牌 */
+  hand: string[] | null;
+  /** 我是谁：其他人看得到的身份（不含自己） */
+  others: Array<{ accountId: string; displayName: string; card: string }> | null;
+  guesses: PartyGuessView[];
+  ownGuess: string | null;
+  points: Record<string, number>;
+  deckLeft: number;
+  log: Array<{ label: string; detail: string | null; ownerName: string | null; at: string; revealed: boolean }>;
+  dice: PartyDiceRoll[];
+  diceConfig: { count: number; sides: number };
+  notes: Array<{ accountId: string; displayName: string; text: string; verdict: string; at: string }>;
+  /** 秘密词二十问剩余可提问数 */
+  limit: number | null;
+  /** 狼人杀阶段：夜晚 / 白天 / 投票 */
+  phase: string | null;
+  /** 我是否还能提交猜测 */
+  canGuess: boolean;
+  results: Array<{ accountId: string; displayName: string; points: number; winner: boolean }> | null;
+  revealAll: Array<{ accountId: string; displayName: string; card: string }> | null;
+  /** 房间 IP 主题快照（开局时固化） */
+  theme: string;
+  /** 个性化来源：local=本地模板 / ai=AI 增强牌堆 / legacy=升级前旧局（无 flavor） */
+  flavorSource: 'local' | 'ai' | 'legacy';
+  /** 我的 MBTI 桶位（用于前端文案语气），缺 MBTI 时为 null */
+  myBucket: FlavorBucket | null;
+  /** 发牌型玩法：我自己身份牌的风味句（只有自己可见） */
+  handFlavor: string | null;
+}
+
+export interface PartyCardView {
+  id: string;
+  label: string;
+  detail: string | null;
+  answer: string | null;
+  revealed: boolean;
+  mine: boolean;
+  ownerName: string | null;
+  /** 个性化：IP 主题 × 角色档案生成的题头（如「《罗小黑战记》· 罗小黑专属」）；hidden 时为 null */
+  kicker: string | null;
+  /** 个性化：按持有者 MBTI 桶位生成的玩法提示（不包含答案）；hidden 时为 null */
+  flavor: string | null;
+  /** 桶位标签，用于前端配色；hidden 时为空数组 */
+  tags: FlavorBucket[];
+}
+
+export interface PartyGuessView { accountId: string; displayName: string; text: string; correct: boolean | null; at: string }
+export interface PartyDiceRoll { accountId: string; displayName: string; values: number[]; total: number; at: string }
 export interface ShoppingPurchase { itemName: string; price: number; note: string; completedAt: string }
 export interface ShoppingResult { accountId: string; displayName: string; playerRole: string; budget: number; spent: number; remaining: number; task: ShoppingTask; purchase: ShoppingPurchase | null }
 

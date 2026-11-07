@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { MBTI_TYPES } from './types.js';
+import { MBTI_TYPES, type GameId } from './types.js';
+import { GAME_IDS } from './games.js';
 
 export const mbtiSchema = z.enum(MBTI_TYPES);
 export const credentialsSchema = z.object({ account:z.string().min(3).max(32), password:z.string().min(8).max(128), displayName:z.string().min(1).max(24).optional() });
@@ -10,5 +11,6 @@ export const roleSchema = z.object({
   ipTheme:z.string().trim().min(1).max(80), name:z.string().trim().min(1).max(50), personaTags:z.array(z.string().max(30)).max(8).default([]),
   quote:z.string().max(100).default(''), signatureAction:z.string().max(100).default(''), ability:z.string().max(100).default(''), isDefault:z.boolean().default(false)
 });
-export const roomCodeSchema = z.string().regex(/^[A-HJ-NP-Z2-9]{6}$/);
-export const actionSchema = z.object({ actionId:z.string().min(8).max(80), gameId:z.enum(['dont','must','witch','camera','draw','imitate','undercover','truth','story','auction']), action:z.string().min(1).max(50), payload:z.record(z.unknown()).optional() });
+/** 新房间使用 4 位房号；仍兼容历史 5～6 位房间 */
+export const roomCodeSchema = z.string().regex(/^[A-HJ-NP-Z2-9]{4,6}$/);
+export const actionSchema = z.object({ actionId:z.string().min(8).max(80), gameId:z.enum(GAME_IDS as [GameId,...GameId[]]), action:z.string().min(1).max(50), payload:z.record(z.unknown()).optional() });

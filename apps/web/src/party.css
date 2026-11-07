@@ -1,0 +1,247 @@
+/* 轻量玩法面板：主持人驱动、每人手机看自己的牌 */
+.party-stage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 10px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.party-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+.party-meta strong { color: var(--text); font-weight: 700; }
+.party-round { color: var(--gold); letter-spacing: .06em; }
+
+.party-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.party-card.party-prompt { border-color: #4a4331; background: linear-gradient(180deg, #262319, #1d1f26 60%); }
+.party-card.party-prompt.is-revealed { border-color: rgba(232, 180, 90, .45); }
+
+.party-kicker {
+  margin: 0;
+  font-size: .72rem;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.party-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 5.5vw, 2.1rem);
+  font-weight: 800;
+  line-height: 1.28;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.party-detail { margin: 0; color: var(--text-soft); line-height: 1.7; }
+.party-hint { margin: 0; color: var(--muted); line-height: 1.65; font-size: .9rem; }
+
+.party-answer {
+  margin-top: 4px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(232, 180, 90, .3);
+  background: var(--gold-soft);
+}
+.party-answer span { font-size: .72rem; letter-spacing: .14em; color: var(--gold); text-transform: uppercase; }
+.party-answer p { margin: 6px 0 0; color: #f7e8c8; line-height: 1.75; }
+
+.party-counter { margin: 0; color: var(--muted); font-size: .9rem; }
+.party-counter strong { color: var(--gold); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+.party-inline {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+}
+.party-inline:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+
+.party-wait { text-align: center; justify-items: center; }
+
+/* 抢答 */
+.party-guess-form { display: flex; gap: 10px; }
+.party-guess-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 16px;
+}
+.party-guess-form input:focus { border-color: var(--gold); outline: none; }
+.party-guess-form input::placeholder { color: var(--hint); }
+.party-guess-form button {
+  min-width: 84px;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-weight: 800;
+}
+.party-guess-form button:disabled { opacity: .4; }
+
+.party-guess-list, .party-note-list, .party-whoami-list, .party-points, .party-score-list, .party-reveal ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.party-guess-list li, .party-note-list li, .party-whoami-list li {
+  display: grid;
+  grid-template-columns: minmax(64px, auto) 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+}
+.party-guess-list span, .party-note-list span, .party-whoami-list span { color: var(--muted); font-size: .82rem; }
+.party-guess-list strong, .party-note-list strong, .party-whoami-list strong { font-weight: 700; overflow-wrap: anywhere; }
+.party-guess-list em { font-style: normal; font-weight: 800; }
+.party-guess-list .is-correct { background: rgba(83, 197, 138, .12); }
+.party-guess-list .is-correct em { color: var(--success); }
+.party-guess-list .is-wrong em { color: var(--danger); }
+.party-note-list em {
+  font-style: normal;
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: .75rem;
+}
+.party-note-list em.v-yes { color: var(--success); }
+.party-note-list em.v-no { color: var(--danger); }
+.party-note-list em.v-close { color: var(--gold); }
+
+/* 记录 */
+.party-log ol { margin: 0; padding-left: 1.1rem; display: grid; gap: 8px; color: var(--text-soft); }
+.party-log li { line-height: 1.5; }
+.party-log li span { color: var(--muted); font-size: .78rem; margin-right: 8px; }
+.party-log li small { display: block; color: var(--muted); margin-top: 2px; }
+
+/* 骰子 */
+.party-dice { text-align: center; justify-items: center; }
+.party-dice-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.party-dice-row span {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 2px solid var(--gold);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 1.9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 24px var(--gold-glow);
+}
+.party-dice-total { margin: 0; color: var(--muted); }
+.party-dice-total strong { color: var(--gold); font-size: 1.4rem; }
+.party-dice-controls { display: flex; gap: 18px; justify-content: center; }
+.party-dice-controls label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .85rem; }
+.party-dice-controls select {
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 16px;
+}
+.party-dice .primary { width: 100%; }
+
+/* 发牌 */
+.party-role { text-align: center; justify-items: center; }
+.party-role-name { font-size: clamp(2.2rem, 12vw, 4rem); letter-spacing: .08em; color: var(--gold); }
+.party-phase { margin: 0; font-size: clamp(1.8rem, 9vw, 3rem); font-weight: 800; letter-spacing: .12em; }
+.party-whoami-list li { grid-template-columns: 1fr auto; }
+.party-whoami-list strong { color: var(--gold); }
+.party-points li, .party-score-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: var(--r-sm); background: var(--bg-elevated); }
+.party-points strong, .party-score-list strong { color: var(--gold); }
+.party-score-list .is-winner { border: 1px solid rgba(232, 180, 90, .45); background: var(--gold-soft); }
+.party-reveal { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.party-reveal li { display: flex; justify-content: space-between; gap: 12px; color: var(--text-soft); }
+.party-reveal strong { color: var(--gold); }
+
+/* 主持操作条 */
+.party-hostbar {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 20px max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+.party-action {
+  min-height: 50px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+}
+.party-action:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.party-finish { grid-column: 1 / -1; }
+.party-rules-link { align-self: center; margin: 4px 0 8px; }
+
+@media (min-width: 720px) {
+  .party-hostbar { grid-template-columns: repeat(4, 1fr); }
+  .party-finish { grid-column: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .party-dice-row span { box-shadow: none; }
+}
+
+/* 个性化风味：按 MBTI 桶位着色的玩法提示 */
+.party-flavor {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--gold);
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+  color: var(--text-soft);
+  line-height: 1.7;
+  font-size: .92rem;
+  overflow-wrap: anywhere;
+}
+.party-tone-perform .party-flavor { border-left-color: #e8b45a; }
+.party-tone-perform .party-kicker { color: #e8b45a; }
+.party-tone-observe .party-flavor { border-left-color: #7fb2e5; }
+.party-tone-observe .party-kicker { color: #7fb2e5; }
+.party-tone-verbal .party-flavor { border-left-color: #a3d977; }
+.party-tone-verbal .party-kicker { color: #a3d977; }
+.party-tone-speed .party-flavor { border-left-color: #e58a7f; }
+.party-tone-speed .party-kicker { color: #e58a7f; }

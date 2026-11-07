@@ -62,7 +62,8 @@ describe('auction API and persistence',()=>{
   });
   it('serializes bids and rotating seller settlement, preserves events and wallet totals after reload',async()=>{
     await setup();for(const id of ids){const asset=await image(id);expect((await act(id,'auction-submit-item',{assetId:asset.assetId,title:'怀表',story:'完整故事'})).status).toBe(200);}
-    expect((await advance()).status).toBe(200);
+    expect((await advance()).status).toBe(200); // setup → preview
+    expect((await advance()).status).toBe(200); // preview → 第一件出价
     const id=randomUUID();const responses=await Promise.all([act(ids[1],'auction-bid',{price:10},id),act(ids[2],'auction-bid',{price:20}),act(ids[1],'auction-bid',{price:15}),act(ids[1],'auction-bid',{price:10},id)]);
     expect(responses.map(r=>r.status).sort()).toEqual([200,200,400,400]);
     const current=JSON.parse(JSON.stringify(await store.getRoom(room.code))) as RoomSnapshot;

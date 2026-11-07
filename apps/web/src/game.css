@@ -390,6 +390,23 @@
 .plan-locked-summary span, .plan-empty { color: var(--muted); font-size: .86rem; line-height: 1.5; }
 .plan-upcoming-title { margin: 22px 0 10px; font-size: 1rem; }
 .plan-empty { margin: 0; padding: 18px; border: 1px dashed #4a4b54; border-radius: 12px; text-align: center; }
+/* 编排弹窗保存按钮：悬浮固定在弹窗底部并高亮，滚动到任意位置都可见可点 */
+.sheet-action-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--gold-hover), var(--gold));
+  color: var(--gold-ink);
+  font-weight: 800;
+  letter-spacing: .01em;
+  box-shadow: 0 -10px 28px rgba(0, 0, 0, .55), 0 2px 10px var(--gold-glow);
+  transition: filter .15s;
+}
+.sheet-action-sticky:hover:not(:disabled) { filter: brightness(1.07); }
+.sheet-action-sticky:active:not(:disabled) { filter: brightness(.94); }
+.sheet-action-sticky:disabled { opacity: .5; }
 .game-picker { margin-top: 24px; border-top: 1px solid #484952; padding-top: 16px; }
 .game-picker h3 { margin: 0 0 8px; font-size: 1rem; }
 .game-picker > button {
