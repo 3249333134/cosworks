@@ -298,8 +298,11 @@ export interface PartyView {
   phase: string | null;
   /** 我是否还能提交猜测 */
   canGuess: boolean;
-  results: Array<{ accountId: string; displayName: string; points: number; winner: boolean }> | null;
+  results: Array<{ accountId: string; displayName: string; points: number; winner: boolean; note?: string | null }> | null;
   revealAll: Array<{ accountId: string; displayName: string; card: string }> | null;
+  /** 狼人杀：阵营胜负与全场存活/身份态（仅 werewolf 局下发，结算后 role 非空） */
+  outcome?: PartyOutcomeView | null;
+  players?: PartyPlayerResult[] | null;
   /** 房间 IP 主题快照（开局时固化） */
   theme: string;
   /** 个性化来源：local=本地模板 / ai=AI 增强牌堆 / legacy=升级前旧局（无 flavor） */
@@ -327,6 +330,18 @@ export interface PartyCardView {
 }
 
 export interface PartyGuessView { accountId: string; displayName: string; text: string; correct: boolean | null; at: string }
+
+/** 结算榜单行（公共态，全员可见） */
+export interface SettlementRow { accountId: string; displayName: string; points: number; winner: boolean; note?: string | null }
+
+/** 传统玩法统一结算卡视图（写入 game.publicState.settlement） */
+export interface GameSettlementView { headline: string; rows: SettlementRow[]; winnerAccountIds: string[] }
+
+/** 狼人杀等发牌型玩法的玩家结算态 */
+export interface PartyPlayerResult { accountId: string; displayName: string; alive: boolean; role: string | null }
+
+/** 狼人杀阵营胜负 */
+export interface PartyOutcomeView { winner: 'werewolf' | 'villager' | null; title: string }
 export interface PartyDiceRoll { accountId: string; displayName: string; values: number[]; total: number; at: string }
 export interface ShoppingPurchase { itemName: string; price: number; note: string; completedAt: string }
 export interface ShoppingResult { accountId: string; displayName: string; playerRole: string; budget: number; spent: number; remaining: number; task: ShoppingTask; purchase: ShoppingPurchase | null }

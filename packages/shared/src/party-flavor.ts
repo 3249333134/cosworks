@@ -223,20 +223,50 @@ export function buildThemeWhoamiPool(theme: string, playerRoles: readonly string
   return [...themeRoles, ...base, ...extras].slice(0, count);
 }
 
-/** 身份分配：抽到的身份若等于本人 playerRole，则与后面一个不冲突的人交换 */
+/**
+ * 身份分配：保证每位玩家拿到的身份 ≠ 自己的 playerRole。
+ * 贪心分配 → 双向合法交换修复 → 池子数学无解时（如两人同角色）兜底合成身份。
+ */
 export function assignIdentitiesAvoidSelf(pool: readonly string[], ownRoles: readonly (string | null)[]): string[] {
-  const result = pool.slice(0, ownRoles.length);
-  for (let i = 0; i < result.length; i++) {
-    const own = (ownRoles[i] ?? '').trim();
-    if (!own || result[i] !== own) continue;
-    for (let j = 0; j < result.length; j++) {
-      if (j === i) continue;
-      const ownJ = (ownRoles[j] ?? '').trim();
-      if (result[j] !== own && (!ownJ || ownJ !== result[i])) {
-        [result[i], result[j]] = [result[j], result[i]];
+  const count = ownRoles.length;
+  const cards = pool.slice(0, count);
+  const owns = ownRoles.map(role => (role ?? '').trim());
+  const result: (string | null)[] = new Array(count).fill(null);
+  const used = new Array(cards.length).fill(false);
+  const ok = (index: number, card: string) => !owns[index] || owns[index] !== card;
+  // 1) 贪心：每人取第一张不等于自己角色的牌
+  for (let i = 0; i < count; i++) {
+    const idx = cards.findIndex((card, k) => !used[k] && ok(i, card));
+    if (idx >= 0) { used[idx] = true; result[i] = cards[idx]; }
+  }
+  // 2) 修复：为还没拿到牌的人，与已分配者做「双方都合法」的交换
+  for (let i = 0; i < count; i++) {
+    if (result[i] !== null) continue;
+    const leftover = cards.findIndex((_, k) => !used[k]);
+    if (leftover < 0) continue;
+    const card = cards[leftover];
+    for (let j = 0; j < count; j++) {
+      const held = result[j];
+      if (j === i || held === null) continue;
+      if (ok(j, card) && ok(i, held)) {
+        // i 拿 j 的旧牌（该槽仍被占用），j 拿空闲的 leftover 槽
+        result[i] = held;
+        result[j] = card;
+        used[leftover] = true;
         break;
       }
     }
   }
-  return result;
+  // 3) 兜底：池子确实无解 → 换成不冲突的合成身份
+  const taken = new Set(cards);
+  let serial = 0;
+  for (let i = 0; i < count; i++) {
+    const assigned = result[i];
+    if (assigned !== null && ok(i, assigned)) continue;
+    let label = `神秘角色 ${++serial}`;
+    while (taken.has(label) || owns.includes(label)) label = `神秘角色 ${++serial}`;
+    taken.add(label);
+    result[i] = label;
+  }
+  return result as string[];
 }

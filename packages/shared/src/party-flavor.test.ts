@@ -155,6 +155,19 @@ describe('whoami pool', () => {
     expect(assigned[2]).not.toBe('无限');
     expect([...assigned].sort()).toEqual(['罗小黑', '小白', '无限'].sort());
   });
+  it('never deals a role to a player who already owns it, even when two players share it', () => {
+    const assigned = assignIdentitiesAvoidSelf(['罗小黑', '无限'], ['罗小黑', '罗小黑']);
+    // 两人都是「罗小黑」：该牌对谁都不能发 → 兜底合成身份
+    expect(assigned[0]).not.toBe('罗小黑');
+    expect(assigned[1]).not.toBe('罗小黑');
+  });
+  it('keeps the pool as a permutation when a valid assignment exists', () => {
+    const assigned = assignIdentitiesAvoidSelf(['A', 'B', 'C'], ['A', 'B', 'C']);
+    expect([...assigned].sort()).toEqual(['A', 'B', 'C'].sort());
+    expect(assigned[0]).not.toBe('A');
+    expect(assigned[1]).not.toBe('B');
+    expect(assigned[2]).not.toBe('C');
+  });
   it('version is exported', () => {
     expect(PARTY_FLAVOR_VERSION).toBeGreaterThan(0);
   });

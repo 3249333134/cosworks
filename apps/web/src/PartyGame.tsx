@@ -269,8 +269,13 @@ function ResultCard({ view }: { view: PartyView }) {
 export function PartyRules({ gameId }: { gameId: string }) {
   const def = isPartyGame(gameId) ? GAME_DEFINITIONS[gameId] : null;
   if (!def) return <p className="muted">暂无规则说明</p>;
+  const card = def.ruleCard;
   return <ol className="dont-rules must-rules">
-    {(def.rules ?? [def.shortRule]).map((rule, index) => <li key={index}><strong>{['怎么开始', '怎么进行', '怎么结束'][index] ?? `第 ${index + 1} 条`}</strong><span>{rule}</span></li>)}
+    <li><strong>目标</strong><span>{card.goal}</span></li>
+    {card.props && <li><strong>道具</strong><span>{card.props}</span></li>}
+    {card.flow.map((step, index) => <li key={index}><strong>{step.title}</strong><span>{step.detail}</span></li>)}
+    <li><strong>胜负</strong><span>{card.win}</span></li>
+    {card.tips.length > 0 && <li><strong>注意</strong><span>{card.tips.join('；')}</span></li>}
     <li><strong>玩家范围</strong><span>{def.minPlayers}–{def.maxPlayers} 人，主持人也可以作为玩家参加；所有内容都只在自己的手机上显示。</span></li>
   </ol>;
 }
